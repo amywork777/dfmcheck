@@ -31,17 +31,17 @@ interface IssueLabelProps {
 function IssueLabel({ position, text, color, highlighted }: IssueLabelProps) {
   return (
     <Html position={[position.x, position.y, position.z]}>
-      <div 
+      <div
         className={`px-3 py-1.5 text-sm rounded-md shadow-lg transition-all duration-200 ${
-          highlighted ? 'scale-110 ring-2 ring-white' : ''
+          highlighted ? "scale-110 ring-2 ring-white" : ""
         }`}
-        style={{ 
-          backgroundColor: color, 
-          color: 'white',
+        style={{
+          backgroundColor: color,
+          color: "white",
           opacity: highlighted ? 1 : 0.95,
-          whiteSpace: 'nowrap',
-          fontWeight: 'bold',
-          border: '2px solid rgba(255,255,255,0.2)'
+          whiteSpace: "nowrap",
+          fontWeight: "bold",
+          border: "2px solid rgba(255,255,255,0.2)",
         }}
       >
         {text}
@@ -53,21 +53,29 @@ function IssueLabel({ position, text, color, highlighted }: IssueLabelProps) {
 interface IssueHighlightProps {
   position: THREE.Vector3;
   color: string;
-  type: 'point' | 'line';
+  type: "point" | "line";
   size?: number;
   measurement?: string;
   highlighted?: boolean;
   onClick?: () => void;
 }
 
-function IssueHighlight({ position, color, type, size = 0.05, measurement, highlighted, onClick }: IssueHighlightProps) {
+function IssueHighlight({
+  position,
+  color,
+  type,
+  size = 0.05,
+  measurement,
+  highlighted,
+  onClick,
+}: IssueHighlightProps) {
   const handlePointerOver = useCallback((e: THREE.Event) => {
     e.stopPropagation();
-    document.body.style.cursor = 'pointer';
+    document.body.style.cursor = "pointer";
   }, []);
 
   const handlePointerOut = useCallback(() => {
-    document.body.style.cursor = 'default';
+    document.body.style.cursor = "default";
   }, []);
 
   const handleClick = useCallback((e: THREE.Event) => {
@@ -77,7 +85,7 @@ function IssueHighlight({ position, color, type, size = 0.05, measurement, highl
 
   return (
     <>
-      {type === 'line' ? (
+      {type === "line" ? (
         <line
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
@@ -88,42 +96,46 @@ function IssueHighlight({ position, color, type, size = 0.05, measurement, highl
               attach="attributes-position"
               count={2}
               array={new Float32Array([
-                position.x - size, position.y, position.z,
-                position.x + size, position.y, position.z
+                position.x - size,
+                position.y,
+                position.z,
+                position.x + size,
+                position.y,
+                position.z,
               ])}
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial 
-            color={color} 
-            linewidth={highlighted ? 8 : 5} 
+          <lineBasicMaterial
+            color={color}
+            linewidth={highlighted ? 8 : 5}
             opacity={highlighted ? 1 : 0.8}
             transparent
           />
         </line>
       ) : (
-        <mesh 
+        <mesh
           position={position}
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
           <sphereGeometry args={[size * (highlighted ? 2 : 1.5), 16, 16]} />
-          <meshBasicMaterial 
-            color={color} 
-            transparent 
+          <meshBasicMaterial
+            color={color}
+            transparent
             opacity={highlighted ? 1 : 0.95}
           />
         </mesh>
       )}
       {measurement && (
-        <IssueLabel 
+        <IssueLabel
           position={new THREE.Vector3(
             position.x,
-            position.y + (type === 'line' ? 0.15 : 0.2),
+            position.y + (type === "line" ? 0.15 : 0.2),
             position.z
           )}
-          text={measurement} 
+          text={measurement}
           color={color}
           highlighted={highlighted}
         />
@@ -159,14 +171,14 @@ function Model({ geometry, analysisReport }: ModelProps) {
         const thickness = v2.distanceTo(v1);
         if (thickness < 1.2 && thickness > 0.01) { // Filter out noise
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
-          points.push({ 
+          points.push({
             id: idCounter++,
-            position: center, 
-            color: '#ff2222',
-            type: 'line',
+            position: center,
+            color: "#ff2222",
+            type: "line",
             size: thickness * 2,
             measurement: `${thickness.toFixed(2)}mm wall`,
-            onClick: () => setHighlightedIssueId(idCounter - 1)
+            onClick: () => setHighlightedIssueId(idCounter - 1),
           });
         }
       }
@@ -174,26 +186,37 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
     // Process overhang issues with improved detection
     if (analysisReport.overhangs.issues.length > 0) {
-      for (let i = 0; i < normalAttr.count; i++) {
-        const normal = new THREE.Vector3().fromBufferAttribute(normalAttr, i);
-        const angle = Math.acos(normal.dot(new THREE.Vector3(0, 0, 1))) * (180 / Math.PI);
+      for (let i = 0; i < positionAttr.count; i += 3) {
+        const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
+        const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
+        const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
-        if (angle > 45) {
-          const position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
-          points.push({ 
+        // Calculate face normal
+        const edge1 = new THREE.Vector3().subVectors(v2, v1);
+        const edge2 = new THREE.Vector3().subVectors(v3, v1);
+        const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+        // Calculate angle with up vector
+        const upVector = new THREE.Vector3(0, 1, 0);
+        const angle = Math.acos(normal.dot(upVector)) * (180 / Math.PI);
+
+        if (angle > 45 && angle < 135) {
+          const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
+          points.push({
             id: idCounter++,
-            position, 
-            color: '#ff8800',
-            type: 'point',
-            size: 0.1,
+            position: center,
+            color: "#ff8800",
+            type: "point",
+            size: 0.15,
             measurement: `${angle.toFixed(1)}° overhang`,
-            onClick: () => setHighlightedIssueId(idCounter - 1)
+            onClick: () => setHighlightedIssueId(idCounter - 1),
           });
         }
       }
     }
 
-    setIssuePoints(points.slice(0, 30)); // Limit total indicators for better performance
+    console.log("Found issues:", points.length);
+    setIssuePoints(points);
   }, [geometry, analysisReport]);
 
   return (
@@ -201,21 +224,21 @@ function Model({ geometry, analysisReport }: ModelProps) {
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
       <mesh geometry={geometry}>
-        <meshPhongMaterial 
-          color="#777" 
-          transparent 
-          opacity={0.75} 
+        <meshPhongMaterial
+          color="#777"
+          transparent
+          opacity={0.75}
           side={THREE.DoubleSide}
         />
       </mesh>
       {issuePoints.map((point) => (
-        <IssueHighlight 
-          key={point.id} 
-          {...point} 
+        <IssueHighlight
+          key={point.id}
+          {...point}
           highlighted={point.id === highlightedIssueId}
         />
       ))}
-      <OrbitControls 
+      <OrbitControls
         enableDamping={true}
         dampingFactor={0.05}
         rotateSpeed={0.5}
@@ -224,9 +247,11 @@ function Model({ geometry, analysisReport }: ModelProps) {
   );
 }
 
-function findHoles(geometry: THREE.BufferGeometry): Array<{ position: THREE.Vector3; radius: number }> {
+function findHoles(
+  geometry: THREE.BufferGeometry
+): Array<{ position: THREE.Vector3; radius: number }> {
   const positions: Array<{ position: THREE.Vector3; radius: number }> = [];
-  const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const positionAttr = geometry.getAttribute("position") as THREE.BufferAttribute;
 
   for (let i = 0; i < positionAttr.count; i += 3) {
     const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
@@ -244,7 +269,11 @@ function findHoles(geometry: THREE.BufferGeometry): Array<{ position: THREE.Vect
   return positions;
 }
 
-export function ModelViewer({ fileContent, className = "", analysisReport }: ModelViewerProps) {
+export function ModelViewer({
+  fileContent,
+  className = "",
+  analysisReport,
+}: ModelViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -263,8 +292,8 @@ export function ModelViewer({ fileContent, className = "", analysisReport }: Mod
 
       const { triangles, normals } = parseSTL(bytes.buffer);
       const threeGeometry = new THREE.BufferGeometry();
-      threeGeometry.setAttribute('position', new THREE.BufferAttribute(triangles, 3));
-      threeGeometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      threeGeometry.setAttribute("position", new THREE.BufferAttribute(triangles, 3));
+      threeGeometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 
       threeGeometry.center();
       threeGeometry.computeBoundingBox();
@@ -280,7 +309,7 @@ export function ModelViewer({ fileContent, className = "", analysisReport }: Mod
       setGeometry(threeGeometry);
       setError(null);
     } catch (err) {
-      console.error('Error loading STL:', err);
+      console.error("Error loading STL:", err);
       setError(err instanceof Error ? err.message : "Failed to load 3D model");
     }
   }, [fileContent]);
@@ -304,7 +333,7 @@ export function ModelViewer({ fileContent, className = "", analysisReport }: Mod
         <Suspense fallback={<LoadingFallback />}>
           <Canvas
             camera={{ position: [0, 0, 5], fov: 75 }}
-            style={{ background: '#f3f4f6' }}
+            style={{ background: "#f3f4f6" }}
           >
             <Model geometry={geometry} analysisReport={analysisReport} />
           </Canvas>

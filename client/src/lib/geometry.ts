@@ -1,4 +1,5 @@
 import type { DFMReport } from "@shared/schema";
+import * as THREE from 'three';
 
 const MIN_WALL_THICKNESS = {
   '3d_printing': 0.8, // mm
@@ -227,24 +228,36 @@ function analyzeWallThickness(triangles: Float32Array, process: ProcessType): Ge
   return { issues, pass };
 }
 
-function analyzeOverhangs(normals: Float32Array): GeometryAnalysisResult {
+function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): GeometryAnalysisResult {
   console.log('Starting overhang analysis...');
   const startTime = Date.now();
   const issues: string[] = [];
   let pass = true;
 
   try {
-    const stride = 3; // Process every normal vector
-    for (let i = 0; i < normals.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += stride) {
+    // Process triangles in groups of 3 vertices (1 face)
+    for (let i = 0; i < triangles.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9) {
       if (Date.now() - startTime > MAX_PROCESSING_TIME) {
         throw new Error("Overhang analysis timeout: Model too complex");
       }
 
-      const normal = [normals[i], normals[i + 1], normals[i + 2]];
-      // Calculate angle between normal and upward vector (0,0,1)
-      const angle = Math.acos(normal[2] / Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2])) * (180 / Math.PI);
+      // Get vertices for the current triangle
+      const v1 = new THREE.Vector3(triangles[i], triangles[i + 1], triangles[i + 2]);
+      const v2 = new THREE.Vector3(triangles[i + 3], triangles[i + 4], triangles[i + 5]);
+      const v3 = new THREE.Vector3(triangles[i + 6], triangles[i + 7], triangles[i + 8]);
 
-      if (angle > MAX_OVERHANG_ANGLE) {
+      // Calculate face normal
+      const edge1 = new THREE.Vector3().subVectors(v2, v1);
+      const edge2 = new THREE.Vector3().subVectors(v3, v1);
+      const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+      // Calculate angle between face normal and up vector (0,1,0)
+      const upVector = new THREE.Vector3(0, 1, 0);
+      const angle = Math.acos(normal.dot(upVector)) * (180 / Math.PI);
+
+      // Check if angle exceeds overhang threshold
+      if (angle > MAX_OVERHANG_ANGLE && angle < 180 - MAX_OVERHANG_ANGLE) {
+        const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
         issues.push(
           `${angle.toFixed(1)}° overhang - support structures required for angles over ${MAX_OVERHANG_ANGLE}°`
         );
@@ -257,6 +270,7 @@ function analyzeOverhangs(normals: Float32Array): GeometryAnalysisResult {
   }
 
   console.log('Overhang analysis completed in', Date.now() - startTime, 'ms');
+  console.log('Found', issues.length, 'overhang issues');
   return { issues, pass };
 }
 
@@ -269,7 +283,6 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
   const startTime = Date.now();
 
   try {
-    // Convert base64 to binary
     const binaryString = atob(fileContent);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -282,7 +295,7 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
     console.log('Successfully parsed STL geometry');
 
     const wallThickness = analyzeWallThickness(triangles, process);
-    const overhangs = analyzeOverhangs(normals);
+    const overhangs = analyzeOverhangs(triangles, normals);
 
     console.log('Analysis complete:', {
       wallThicknessIssues: wallThickness.issues.length,
@@ -290,35 +303,11 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
       totalTime: Date.now() - startTime,
     });
 
-    const holeSize = {
-      issues: [] as string[],
-      pass: true
-    };
-
-    const draftAngles = {
-      issues: [] as string[],
-      pass: true
-    };
-
-    if (process === "injection_molding") {
-      draftAngles.issues.push(
-        "3.0° angle - Side walls require minimum 3° draft angle for proper ejection"
-      );
-      draftAngles.pass = false;
-    }
-
-    if (process === "cnc_machining") {
-      holeSize.issues.push(
-        "2.0mm hole - Deep holes with small diameters may require specialized tooling"
-      );
-      holeSize.pass = false;
-    }
-
     return {
       wallThickness,
       overhangs,
-      holeSize,
-      draftAngles
+      holeSize: { issues: [], pass: true },
+      draftAngles: { issues: [], pass: true }
     };
   } catch (error) {
     console.error('Geometry analysis error:', error);
