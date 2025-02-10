@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import * as THREE from "three";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -25,19 +25,25 @@ interface IssueLabelProps {
   position: THREE.Vector3;
   text: string;
   color: string;
+  highlighted?: boolean;
 }
 
-function IssueLabel({ position, text, color }: IssueLabelProps) {
+function IssueLabel({ position, text, color, highlighted }: IssueLabelProps) {
   return (
     <Html position={[position.x, position.y, position.z]}>
-      <div className="px-3 py-1.5 text-sm rounded-md shadow-lg" style={{ 
-        backgroundColor: color, 
-        color: 'white',
-        opacity: 0.95,
-        whiteSpace: 'nowrap',
-        fontWeight: 'bold',
-        border: '2px solid rgba(255,255,255,0.2)'
-      }}>
+      <div 
+        className={`px-3 py-1.5 text-sm rounded-md shadow-lg transition-all duration-200 ${
+          highlighted ? 'scale-110 ring-2 ring-white' : ''
+        }`}
+        style={{ 
+          backgroundColor: color, 
+          color: 'white',
+          opacity: highlighted ? 1 : 0.95,
+          whiteSpace: 'nowrap',
+          fontWeight: 'bold',
+          border: '2px solid rgba(255,255,255,0.2)'
+        }}
+      >
         {text}
       </div>
     </Html>
@@ -50,13 +56,33 @@ interface IssueHighlightProps {
   type: 'point' | 'line';
   size?: number;
   measurement?: string;
+  highlighted?: boolean;
+  onClick?: () => void;
 }
 
-function IssueHighlight({ position, color, type, size = 0.05, measurement }: IssueHighlightProps) {
+function IssueHighlight({ position, color, type, size = 0.05, measurement, highlighted, onClick }: IssueHighlightProps) {
+  const handlePointerOver = useCallback((e: THREE.Event) => {
+    e.stopPropagation();
+    document.body.style.cursor = 'pointer';
+  }, []);
+
+  const handlePointerOut = useCallback(() => {
+    document.body.style.cursor = 'default';
+  }, []);
+
+  const handleClick = useCallback((e: THREE.Event) => {
+    e.stopPropagation();
+    onClick?.();
+  }, [onClick]);
+
   return (
     <>
       {type === 'line' ? (
-        <line>
+        <line
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          onClick={handleClick}
+        >
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
@@ -68,12 +94,26 @@ function IssueHighlight({ position, color, type, size = 0.05, measurement }: Iss
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color={color} linewidth={5} />
+          <lineBasicMaterial 
+            color={color} 
+            linewidth={highlighted ? 8 : 5} 
+            opacity={highlighted ? 1 : 0.8}
+            transparent
+          />
         </line>
       ) : (
-        <mesh position={position}>
-          <sphereGeometry args={[size * 1.5, 16, 16]} />
-          <meshBasicMaterial color={color} transparent opacity={0.95} />
+        <mesh 
+          position={position}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          onClick={handleClick}
+        >
+          <sphereGeometry args={[size * (highlighted ? 2 : 1.5), 16, 16]} />
+          <meshBasicMaterial 
+            color={color} 
+            transparent 
+            opacity={highlighted ? 1 : 0.95}
+          />
         </mesh>
       )}
       {measurement && (
@@ -84,7 +124,8 @@ function IssueHighlight({ position, color, type, size = 0.05, measurement }: Iss
             position.z
           )}
           text={measurement} 
-          color={color} 
+          color={color}
+          highlighted={highlighted}
         />
       )}
     </>
@@ -97,21 +138,20 @@ interface ModelProps {
 }
 
 function Model({ geometry, analysisReport }: ModelProps) {
-  const [issuePoints, setIssuePoints] = useState<IssueHighlightProps[]>([]);
+  const [issuePoints, setIssuePoints] = useState<(IssueHighlightProps & { id: number })[]>([]);
+  const [highlightedIssueId, setHighlightedIssueId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!analysisReport || !geometry) return;
 
-    const points: IssueHighlightProps[] = [];
+    const points: (IssueHighlightProps & { id: number })[] = [];
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute;
-
-    // Optimized sampling rate based on model complexity
-    const sampleRate = Math.max(1, Math.floor(positionAttr.count / (positionAttr.count > 10000 ? 200 : 50)));
+    let idCounter = 0;
 
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += sampleRate * 3) {
+      for (let i = 0; i < positionAttr.count; i += 3) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
@@ -120,48 +160,37 @@ function Model({ geometry, analysisReport }: ModelProps) {
         if (thickness < 1.2 && thickness > 0.01) { // Filter out noise
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({ 
+            id: idCounter++,
             position: center, 
             color: '#ff2222',
             type: 'line',
             size: thickness * 2,
-            measurement: `${thickness.toFixed(2)}mm wall`
+            measurement: `${thickness.toFixed(2)}mm wall`,
+            onClick: () => setHighlightedIssueId(idCounter - 1)
           });
         }
       }
     }
 
-    // Process overhang issues
+    // Process overhang issues with improved detection
     if (analysisReport.overhangs.issues.length > 0) {
-      const normalSampleRate = Math.max(1, Math.floor(normalAttr.count / (normalAttr.count > 10000 ? 150 : 75)));
-      for (let i = 0; i < normalAttr.count; i += normalSampleRate) {
+      for (let i = 0; i < normalAttr.count; i++) {
         const normal = new THREE.Vector3().fromBufferAttribute(normalAttr, i);
-        const angle = Math.acos(normal.z) * (180 / Math.PI);
+        const angle = Math.acos(normal.dot(new THREE.Vector3(0, 0, 1))) * (180 / Math.PI);
 
         if (angle > 45) {
           const position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
           points.push({ 
+            id: idCounter++,
             position, 
             color: '#ff8800',
             type: 'point',
             size: 0.1,
-            measurement: `${angle.toFixed(1)}° overhang`
+            measurement: `${angle.toFixed(1)}° overhang`,
+            onClick: () => setHighlightedIssueId(idCounter - 1)
           });
         }
       }
-    }
-
-    // Process hole size issues
-    if (analysisReport.holeSize.issues.length > 0) {
-      const holePositions = findHoles(geometry, sampleRate);
-      holePositions.slice(0, 15).forEach(({ position, radius }) => {
-        points.push({
-          position,
-          color: '#4444ff',
-          type: 'point',
-          size: 0.08,
-          measurement: `${(radius * 2).toFixed(2)}mm hole`
-        });
-      });
     }
 
     setIssuePoints(points.slice(0, 30)); // Limit total indicators for better performance
@@ -172,21 +201,34 @@ function Model({ geometry, analysisReport }: ModelProps) {
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
       <mesh geometry={geometry}>
-        <meshPhongMaterial color="#777" transparent opacity={0.75} /> {/* Increased transparency for better visibility */}
+        <meshPhongMaterial 
+          color="#777" 
+          transparent 
+          opacity={0.75} 
+          side={THREE.DoubleSide}
+        />
       </mesh>
-      {issuePoints.map((point, index) => (
-        <IssueHighlight key={index} {...point} />
+      {issuePoints.map((point) => (
+        <IssueHighlight 
+          key={point.id} 
+          {...point} 
+          highlighted={point.id === highlightedIssueId}
+        />
       ))}
-      <OrbitControls />
+      <OrbitControls 
+        enableDamping={true}
+        dampingFactor={0.05}
+        rotateSpeed={0.5}
+      />
     </>
   );
 }
 
-function findHoles(geometry: THREE.BufferGeometry, sampleRate: number): Array<{ position: THREE.Vector3; radius: number }> {
+function findHoles(geometry: THREE.BufferGeometry): Array<{ position: THREE.Vector3; radius: number }> {
   const positions: Array<{ position: THREE.Vector3; radius: number }> = [];
   const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
 
-  for (let i = 0; i < positionAttr.count; i += sampleRate * 3) {
+  for (let i = 0; i < positionAttr.count; i += 3) {
     const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
     const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
     const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);

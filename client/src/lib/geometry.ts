@@ -234,14 +234,15 @@ function analyzeOverhangs(normals: Float32Array): GeometryAnalysisResult {
   let pass = true;
 
   try {
-    const stride = Math.max(1, Math.floor(normals.length / ANALYSIS_CHUNK_SIZE));
-    for (let i = 0; i < normals.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += stride * 3) {
+    const stride = 3; // Process every normal vector
+    for (let i = 0; i < normals.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += stride) {
       if (Date.now() - startTime > MAX_PROCESSING_TIME) {
         throw new Error("Overhang analysis timeout: Model too complex");
       }
 
       const normal = [normals[i], normals[i + 1], normals[i + 2]];
-      const angle = Math.acos(normal[2]) * (180 / Math.PI);
+      // Calculate angle between normal and upward vector (0,0,1)
+      const angle = Math.acos(normal[2] / Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2])) * (180 / Math.PI);
 
       if (angle > MAX_OVERHANG_ANGLE) {
         issues.push(
