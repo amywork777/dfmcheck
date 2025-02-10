@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
 import { Loader2 } from "lucide-react";
+import type { DFMReport } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
@@ -18,6 +19,7 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisReport, setAnalysisReport] = useState<DFMReport | null>(null);
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
@@ -28,11 +30,9 @@ export default function Home() {
         setAnalyzing(true);
         console.log('Reading file:', file.name, 'size:', file.size);
 
-        // Read file as array buffer first
         const arrayBuffer = await file.arrayBuffer();
         console.log('Array buffer size:', arrayBuffer.byteLength);
 
-        // Convert to base64
         const base64 = btoa(
           new Uint8Array(arrayBuffer)
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
@@ -40,6 +40,7 @@ export default function Home() {
 
         console.log('Starting geometry analysis...');
         const report = analyzeGeometry(base64, process);
+        setAnalysisReport(report);
         console.log('Analysis complete');
 
         const response = await apiRequest("POST", "/api/analyze", {
@@ -55,7 +56,6 @@ export default function Home() {
         if (error.name === 'AbortError' || error.message?.includes('timeout')) {
           throw new Error('Analysis timed out. The model might be too complex, try simplifying it first.');
         }
-        // If we get a specific error about ASCII STL, show a more helpful message
         if (error.message?.includes('save your STL file in binary format')) {
           throw new Error('Please save your STL file in binary format. Most 3D modeling software can export as binary STL.');
         }
@@ -86,8 +86,7 @@ export default function Home() {
   const handleFileSelected = useCallback(async (file: File) => {
     if (file.name.toLowerCase().endsWith('.stl')) {
       try {
-        // Check file size
-        if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        if (file.size > 50 * 1024 * 1024) {
           toast({
             title: "File too large",
             description: "Please upload a file smaller than 50MB",
@@ -96,13 +95,9 @@ export default function Home() {
           return false;
         }
 
-        // Set selected file first
         setSelectedFile(file);
-
-        // Read file as array buffer
         const arrayBuffer = await file.arrayBuffer();
 
-        // Basic validation of STL format
         if (arrayBuffer.byteLength < 84) {
           toast({
             title: "Invalid STL file",
@@ -112,20 +107,13 @@ export default function Home() {
           return false;
         }
 
-        // Convert to base64
         const base64 = btoa(
           new Uint8Array(arrayBuffer)
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
 
-        console.log('File processed:', {
-          name: file.name,
-          size: file.size,
-          arrayBufferSize: arrayBuffer.byteLength,
-          base64Length: base64.length
-        });
-
         setFileContent(base64);
+        setAnalysisReport(null);
 
         toast({
           title: "File uploaded successfully",
@@ -167,14 +155,17 @@ export default function Home() {
           <FileUpload
             onFileSelected={handleFileSelected}
             onFileUploaded={setSelectedFile}
-            maxSize={50 * 1024 * 1024} // 50MB
+            maxSize={50 * 1024 * 1024}
             accept=".stl"
           />
 
           {fileContent && (
             <Card className="p-6">
               <h3 className="font-medium mb-4">3D Preview</h3>
-              <ModelViewer fileContent={fileContent} />
+              <ModelViewer 
+                fileContent={fileContent} 
+                analysisReport={analysisReport}
+              />
             </Card>
           )}
 
