@@ -92,7 +92,7 @@ function parseBinarySTL(buffer: ArrayBuffer): {
     return { triangles, normals };
   } catch (error) {
     console.error('STL parsing error:', error);
-    throw new Error(`Failed to parse STL file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw error;
   }
 }
 

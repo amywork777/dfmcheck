@@ -68,11 +68,33 @@ export default function Home() {
 
   const handleFileSelected = useCallback(async (file: File) => {
     if (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.step')) {
-      setSelectedFile(file);
-
       try {
-        // Read file as array buffer first
+        // Check file size
+        if (file.size > 50 * 1024 * 1024) { // 50MB limit
+          toast({
+            title: "File too large",
+            description: "Please upload a file smaller than 50MB",
+            variant: "destructive"
+          });
+          return false;
+        }
+
+        // Set selected file first
+        setSelectedFile(file);
+
+        // Read file as array buffer
         const arrayBuffer = await file.arrayBuffer();
+
+        // Basic validation of STL format
+        if (file.name.toLowerCase().endsWith('.stl') && arrayBuffer.byteLength < 84) {
+          toast({
+            title: "Invalid STL file",
+            description: "The file appears to be corrupted or invalid",
+            variant: "destructive"
+          });
+          return false;
+        }
+
         // Convert to base64
         const base64 = btoa(
           new Uint8Array(arrayBuffer)
@@ -90,7 +112,7 @@ export default function Home() {
         console.error('File reading error:', error);
         toast({
           title: "Error reading file",
-          description: "Failed to read the file. Please try again.",
+          description: error instanceof Error ? error.message : "Failed to read the file",
           variant: "destructive"
         });
         return false;
@@ -98,7 +120,7 @@ export default function Home() {
     }
 
     toast({
-      title: "Invalid file",
+      title: "Invalid file type",
       description: "Please upload an STL or STEP file",
       variant: "destructive"
     });
