@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { parseSTL } from "@/lib/geometry";
+import { Progress } from "@/components/ui/progress"; 
 import type { DFMReport } from "@shared/schema";
 
 interface ModelViewerProps {
@@ -90,14 +91,14 @@ function IssueHighlight({
   return (
     <>
       {type === "line" ? (
-        <mesh 
+        <mesh
           position={position}
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
           <boxGeometry args={[size * 2, 0.02, 0.02]} />
-          <meshBasicMaterial 
+          <meshBasicMaterial
             color={color}
             transparent
             opacity={highlighted ? 1 : 0.8}
@@ -110,7 +111,7 @@ function IssueHighlight({
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
-          <sphereGeometry args={[size * (highlighted ? 1.5 : 1), 16, 16]} />
+          <sphereGeometry args={[size * (highlighted ? 1.5 : 1), 8, 8]} />
           <meshBasicMaterial
             color={color}
             transparent
@@ -142,6 +143,7 @@ interface ModelProps {
 function Model({ geometry, analysisReport }: ModelProps) {
   const [issuePoints, setIssuePoints] = useState<(IssueHighlightProps & { id: number })[]>([]);
   const [highlightedIssueId, setHighlightedIssueId] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (!analysisReport || !geometry) return;
@@ -152,11 +154,16 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
     // Calculate sampling rate based on model complexity
     const totalTriangles = positionAttr.count / 3;
-    const samplingRate = Math.max(1, Math.ceil(totalTriangles / 1000));
+    const samplingRate = Math.max(5, Math.ceil(totalTriangles / 1000));
+
+    console.log('Processing visualization with sampling rate:', samplingRate);
+
+    let processedPoints = 0;
+    const maxPoints = 50; // Limit visualization markers for performance
 
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3 * samplingRate) {
+      for (let i = 0; i < positionAttr.count && processedPoints < maxPoints; i += 3 * samplingRate) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
@@ -173,27 +180,25 @@ function Model({ geometry, analysisReport }: ModelProps) {
             measurement: `${thickness.toFixed(2)}mm wall`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
+          processedPoints++;
         }
+        setProgress((i / positionAttr.count) * 100);
       }
     }
 
-    // Process overhang issues
+    // Process overhang issues with the remaining point budget
     if (analysisReport.overhangs.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3 * samplingRate) {
+      for (let i = 0; i < positionAttr.count && processedPoints < maxPoints; i += 3 * samplingRate) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
-        // Calculate face normal
         const edge1 = new THREE.Vector3().subVectors(v2, v1);
         const edge2 = new THREE.Vector3().subVectors(v3, v1);
         const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
-
-        // Calculate angle with up vector
         const upVector = new THREE.Vector3(0, 1, 0);
         const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-        // Check for overhangs on larger faces
         const faceArea = edge1.cross(edge2).length() / 2;
         if (angle > 45 && faceArea > 0.01) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
@@ -206,11 +211,15 @@ function Model({ geometry, analysisReport }: ModelProps) {
             measurement: `${angle.toFixed(1)}° overhang`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
+          processedPoints++;
         }
+        setProgress((i / positionAttr.count) * 100);
       }
     }
 
+    console.log('Visualization markers:', processedPoints);
     setIssuePoints(points);
+    setProgress(100);
   }, [geometry, analysisReport]);
 
   return (
@@ -223,6 +232,8 @@ function Model({ geometry, analysisReport }: ModelProps) {
           transparent
           opacity={0.8}
           side={THREE.DoubleSide}
+          wireframe={false}
+          flatShading={true}
         />
       </mesh>
       {issuePoints.map((point) => (
@@ -236,7 +247,16 @@ function Model({ geometry, analysisReport }: ModelProps) {
         enableDamping={true}
         dampingFactor={0.05}
         rotateSpeed={0.5}
+        maxDistance={10}
+        minDistance={0.5}
       />
+      {progress < 100 && (
+        <Html position={[0, -1.5, 0]}>
+          <div className="w-64">
+            <Progress value={progress} className="h-2" />
+          </div>
+        </Html>
+      )}
     </>
   );
 }
@@ -278,8 +298,32 @@ export function ModelViewer({
         const size = new THREE.Vector3();
         threeGeometry.boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 2 / maxDim;
+        const minDim = Math.min(size.x, size.y, size.z);
+
+        // Smart scaling:
+        // - For very small models (< 1mm), scale up significantly
+        // - For normal sized models (1mm - 1000mm), use standard scaling
+        // - For very large models (> 1000mm), scale down more aggressively
+        let scale = 2 / maxDim; // default scale
+
+        if (maxDim < 1) {
+          // Small model, scale up more aggressively
+          scale = 2 / Math.pow(maxDim, 0.8);
+        } else if (maxDim > 1000) {
+          // Large model, scale down more conservatively
+          scale = 2 / Math.pow(maxDim, 1.2);
+        }
+
+        // Apply scaling while preserving proportions
         threeGeometry.scale(scale, scale, scale);
+
+        // Log the scaling information for debugging
+        console.log('Model dimensions:', {
+          original: { x: size.x, y: size.y, z: size.z },
+          maxDim,
+          minDim,
+          appliedScale: scale
+        });
       }
 
       setGeometry(threeGeometry);
@@ -309,6 +353,8 @@ export function ModelViewer({
         <Canvas
           camera={{ position: [0, 0, 5], fov: 75 }}
           style={{ background: "#f3f4f6" }}
+          dpr={[1, 2]} // Limit DPR for better performance
+          performance={{ min: 0.5 }} // Allow frame rate to drop for better performance
         >
           <Model geometry={geometry} analysisReport={analysisReport} />
         </Canvas>
