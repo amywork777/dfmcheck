@@ -74,21 +74,24 @@ function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; a
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute;
 
+    // Sample fewer triangles for better performance
+    const sampleRate = Math.max(1, Math.floor(positionAttr.count / 300)); // Sample max 100 issues
+
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3) {
+      for (let i = 0; i < positionAttr.count; i += sampleRate * 3) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
         const thickness = v2.distanceTo(v1);
-        if (thickness < 1.2) { // Using CNC machining minimum wall thickness as reference
+        if (thickness < 1.2) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({ 
             position: center, 
-            color: '#ff4444', // Red for thin walls
+            color: '#ff4444',
             type: 'line',
-            size: thickness * 2 // Make line length proportional to wall thickness
+            size: thickness * 2
           });
         }
       }
@@ -96,7 +99,8 @@ function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; a
 
     // Process overhang issues
     if (analysisReport.overhangs.issues.length > 0) {
-      for (let i = 0; i < normalAttr.count; i++) {
+      const normalSampleRate = Math.max(1, Math.floor(normalAttr.count / 300));
+      for (let i = 0; i < normalAttr.count; i += normalSampleRate) {
         const normal = new THREE.Vector3().fromBufferAttribute(normalAttr, i);
         const angle = Math.acos(normal.z) * (180 / Math.PI);
 
@@ -104,22 +108,21 @@ function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; a
           const position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
           points.push({ 
             position, 
-            color: '#ffaa00', // Orange for overhangs
+            color: '#ffaa00',
             type: 'point',
-            size: 0.08 // Larger indicators for overhang issues
+            size: 0.08
           });
         }
       }
     }
 
-    // Process hole size issues for CNC machining
+    // Process hole size issues
     if (analysisReport.holeSize.issues.length > 0) {
-      // Add visual indicators for small holes
-      const holePositions = findHoles(geometry);
-      holePositions.forEach(pos => {
+      const holePositions = findHoles(geometry, sampleRate);
+      holePositions.slice(0, 50).forEach(pos => { // Limit to 50 hole indicators
         points.push({
           position: pos,
-          color: '#4444ff', // Blue for hole size issues
+          color: '#4444ff',
           type: 'point',
           size: 0.06
         });
@@ -150,21 +153,19 @@ function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; a
   );
 }
 
-function findHoles(geometry: THREE.BufferGeometry): THREE.Vector3[] {
+function findHoles(geometry: THREE.BufferGeometry, sampleRate: number): THREE.Vector3[] {
   const positions: THREE.Vector3[] = [];
   const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
 
-  // Simplified hole detection - look for circular patterns in vertices
-  for (let i = 0; i < positionAttr.count; i += 3) {
+  for (let i = 0; i < positionAttr.count; i += sampleRate * 3) {
     const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
     const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
     const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
-    // Check if vertices form a roughly circular pattern
     const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
     const radius = v1.distanceTo(center);
 
-    if (radius < 1.0) { // Small holes less than 2mm diameter
+    if (radius < 1.0) {
       positions.push(center);
     }
   }
