@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -11,18 +11,19 @@ import { apiRequest } from "@/lib/queryClient";
 export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
       const reader = new FileReader();
-      
+
       const content = await new Promise<string>((resolve) => {
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.readAsText(file);
       });
 
       const report = analyzeGeometry(content, process);
-      
+
       const response = await apiRequest("POST", "/api/analyze", {
         fileName: file.name,
         fileContent: content,
@@ -44,9 +45,11 @@ export default function Home() {
     }
   });
 
-  const handleAnalyze = useCallback(async (file: File, process: string) => {
-    analyzeMutation.mutate({ file, process });
-  }, [analyzeMutation]);
+  const handleAnalyze = useCallback(async (process: string) => {
+    if (selectedFile) {
+      analyzeMutation.mutate({ file: selectedFile, process });
+    }
+  }, [analyzeMutation, selectedFile]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,6 +67,7 @@ export default function Home() {
           <FileUpload
             onFileSelected={(file) => {
               if (file.name.endsWith('.stl') || file.name.endsWith('.step')) {
+                setSelectedFile(file);
                 return true;
               }
               toast({
@@ -81,6 +85,7 @@ export default function Home() {
             processes={manufacturingProcesses}
             onAnalyze={handleAnalyze}
             isLoading={analyzeMutation.isPending}
+            disabled={!selectedFile}
           />
         </div>
       </div>

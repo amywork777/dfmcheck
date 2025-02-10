@@ -4,30 +4,31 @@ import { Upload } from "lucide-react";
 
 interface FileUploadProps {
   onFileSelected: (file: File) => boolean;
+  onFileUploaded: (file: File) => void;
   maxSize: number;
   accept: string;
 }
 
-export function FileUpload({ onFileSelected, maxSize, accept }: FileUploadProps) {
+export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: FileUploadProps) {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file && file.size <= maxSize && onFileSelected(file)) {
-      // File accepted
+      onFileUploaded(file);
     }
-  }, [maxSize, onFileSelected]);
+  }, [maxSize, onFileSelected, onFileUploaded]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.size <= maxSize && onFileSelected(file)) {
-      // File accepted
+      onFileUploaded(file);
     }
-  }, [maxSize, onFileSelected]);
+  }, [maxSize, onFileSelected, onFileUploaded]);
 
   return (
     <Card className="p-8">
       <div
-        className="border-2 border-dashed rounded-lg p-12 text-center"
+        className="border-2 border-dashed rounded-lg p-12 text-center relative"
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
