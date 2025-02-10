@@ -11,20 +11,67 @@ const MAX_OVERHANG_ANGLE = 45; // degrees
 const MIN_HOLE_SIZE = 2.0; // mm
 const MIN_DRAFT_ANGLE = 3.0; // degrees
 
-function validateSTLHeader(buffer: ArrayBuffer): boolean {
-  // Check if buffer is at least large enough to contain header and triangle count
+function isAsciiSTL(buffer: ArrayBuffer): boolean {
+  const headerView = new Uint8Array(buffer, 0, 5);
+  const decoder = new TextDecoder();
+  const header = decoder.decode(headerView);
+  return header.trim().toLowerCase() === 'solid';
+}
+
+function validateSTLHeader(buffer: ArrayBuffer): {isBinary: boolean} {
+  // Check if buffer is at least large enough to contain header
   if (buffer.byteLength < 84) {
     console.error('Buffer too small:', buffer.byteLength, 'bytes');
     throw new Error("Invalid STL file: File too small");
   }
 
-  // First 80 bytes should be ASCII header
+  const isBinary = !isAsciiSTL(buffer);
+  console.log('STL Format:', isBinary ? 'Binary' : 'ASCII');
+
+  // First 80 bytes should be header
   const headerView = new Uint8Array(buffer, 0, 80);
   const decoder = new TextDecoder();
   const header = decoder.decode(headerView);
   console.log('STL Header:', header);
 
-  return true;
+  return { isBinary };
+}
+
+function parseTriangleCount(buffer: ArrayBuffer, isBinary: boolean): number {
+  if (isBinary) {
+    const view = new DataView(buffer);
+    const count = view.getUint32(80, true);
+    const expectedSize = 84 + (count * 50);
+
+    console.log('Binary STL stats:', {
+      triangleCount: count,
+      bufferSize: buffer.byteLength,
+      expectedSize
+    });
+
+    if (count <= 0 || count > 5000000 || buffer.byteLength !== expectedSize) {
+      throw new Error("Invalid STL file: Incorrect file structure");
+    }
+
+    return count;
+  } else {
+    // For ASCII STL, count "facet normal" occurrences
+    const decoder = new TextDecoder();
+    const text = decoder.decode(buffer);
+    const matches = text.match(/facet normal/g);
+    const count = matches ? matches.length : 0;
+
+    console.log('ASCII STL stats:', {
+      triangleCount: count,
+      bufferSize: buffer.byteLength
+    });
+
+    if (count <= 0 || count > 5000000) {
+      throw new Error("Invalid STL file: No valid triangles found");
+    }
+
+    return count;
+  }
 }
 
 function parseBinarySTL(buffer: ArrayBuffer): {
@@ -32,35 +79,19 @@ function parseBinarySTL(buffer: ArrayBuffer): {
   normals: Float32Array;
 } {
   try {
-    validateSTLHeader(buffer);
+    const { isBinary } = validateSTLHeader(buffer);
+    const triangleCount = parseTriangleCount(buffer, isBinary);
 
-    const view = new DataView(buffer);
-    const triangleCount = view.getUint32(80, true);
-    console.log('Triangle count:', triangleCount);
-    console.log('Buffer size:', buffer.byteLength);
-
-    // Validate expected file size
-    const expectedSize = 84 + (triangleCount * 50);
-    console.log('Expected size:', expectedSize);
-
-    if (triangleCount <= 0 || triangleCount > 5000000) {
-      console.error('Invalid triangle count:', triangleCount);
-      throw new Error("Invalid STL file: Invalid number of triangles");
-    }
-
-    if (buffer.byteLength !== expectedSize) {
-      console.error('Size mismatch:', {
-        actual: buffer.byteLength,
-        expected: expectedSize,
-        triangles: triangleCount
-      });
-      throw new Error("Invalid STL file: File size doesn't match triangle count");
+    if (!isBinary) {
+      throw new Error("Please save your STL file in binary format");
     }
 
     const triangles = new Float32Array(triangleCount * 9);
     const normals = new Float32Array(triangleCount * 3);
 
     let offset = 84; // Skip header
+    const view = new DataView(buffer);
+
     for (let i = 0; i < triangleCount; i++) {
       // Validate we have enough data left
       if (offset + 50 > buffer.byteLength) {

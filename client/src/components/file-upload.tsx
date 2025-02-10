@@ -10,7 +10,7 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: FileUploadProps) {
-  const handleFile = useCallback((file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     if (file && file.size <= maxSize && onFileSelected(file)) {
       onFileUploaded(file);
     }
@@ -42,7 +42,10 @@ export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: 
         <div className="space-y-2">
           <h3 className="font-medium">Drop your 3D model here</h3>
           <p className="text-sm text-muted-foreground">
-            Or click to select a file
+            Upload a binary STL file for best compatibility
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Most 3D modeling software can export as binary STL
           </p>
         </div>
         <input

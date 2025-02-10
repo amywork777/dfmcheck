@@ -43,8 +43,12 @@ export default function Home() {
         });
 
         return await response.json();
-      } catch (error) {
+      } catch (error: any) {
         console.error('Analysis error:', error);
+        // If we get a specific error about ASCII STL, show a more helpful message
+        if (error.message?.includes('save your STL file in binary format')) {
+          throw new Error('Please save your STL file in binary format. Most 3D modeling software can export as binary STL.');
+        }
         throw error;
       }
     },
