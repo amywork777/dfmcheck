@@ -1,6 +1,136 @@
 import type { DFMReport } from "@shared/schema";
 import * as THREE from 'three';
 
+export function parseSTL(data: ArrayBuffer): { triangles: Float32Array; normals: Float32Array } {
+  if (data.byteLength === 0) {
+    throw new Error("Empty file provided");
+  }
+
+  console.log('Starting STL parsing...');
+  const view = new DataView(data);
+
+  // Check if binary STL
+  const isBinary = !isAsciiSTL(data);
+  console.log('STL Format:', isBinary ? 'Binary' : 'ASCII');
+
+  if (!isBinary) {
+    return parseAsciiSTL(data);
+  }
+
+  // Parse binary STL
+  if (data.byteLength < 84) {
+    throw new Error("Invalid STL file: Too small for binary format");
+  }
+
+  const triangleCount = view.getUint32(80, true);
+  const expectedSize = 84 + (triangleCount * 50);
+
+  if (data.byteLength !== expectedSize) {
+    throw new Error(`Invalid STL file: Incorrect file size`);
+  }
+
+  const triangles = new Float32Array(triangleCount * 9);
+  const normals = new Float32Array(triangleCount * 9); // One normal per vertex for better rendering
+
+  let offset = 84; // Skip header
+  let vertexIndex = 0;
+  let normalIndex = 0;
+
+  for (let i = 0; i < triangleCount; i++) {
+    const nx = view.getFloat32(offset, true);
+    const ny = view.getFloat32(offset + 4, true);
+    const nz = view.getFloat32(offset + 8, true);
+    offset += 12;
+
+    // Store vertices
+    for (let j = 0; j < 3; j++) {
+      triangles[vertexIndex] = view.getFloat32(offset, true);
+      triangles[vertexIndex + 1] = view.getFloat32(offset + 4, true);
+      triangles[vertexIndex + 2] = view.getFloat32(offset + 8, true);
+
+      // Store normal for each vertex
+      normals[normalIndex] = nx;
+      normals[normalIndex + 1] = ny;
+      normals[normalIndex + 2] = nz;
+
+      vertexIndex += 3;
+      normalIndex += 3;
+      offset += 12;
+    }
+
+    offset += 2; // Skip attribute byte count
+  }
+
+  return { triangles, normals };
+}
+
+function isAsciiSTL(data: ArrayBuffer): boolean {
+  const decoder = new TextDecoder();
+  const header = decoder.decode(new Uint8Array(data, 0, 5));
+  return header.toLowerCase().trim() === 'solid';
+}
+
+function parseAsciiSTL(data: ArrayBuffer): { triangles: Float32Array; normals: Float32Array } {
+  const decoder = new TextDecoder();
+  const text = decoder.decode(data);
+  const lines = text.split('\n');
+
+  const vertices: number[] = [];
+  const normals: number[] = [];
+  let normal: number[] = [0, 0, 0];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('facet normal ')) {
+      const parts = trimmed.split(/\s+/);
+      normal = [
+        parseFloat(parts[2]),
+        parseFloat(parts[3]),
+        parseFloat(parts[4])
+      ];
+    } else if (trimmed.startsWith('vertex ')) {
+      const parts = trimmed.split(/\s+/);
+      vertices.push(
+        parseFloat(parts[1]),
+        parseFloat(parts[2]),
+        parseFloat(parts[3])
+      );
+      normals.push(...normal);
+    }
+  }
+
+  return {
+    triangles: new Float32Array(vertices),
+    normals: new Float32Array(normals)
+  };
+}
+
+export function analyzeGeometry(fileContent: string, process: string): DFMReport {
+  if (!fileContent) {
+    throw new Error("No file content provided for analysis");
+  }
+
+  const binaryString = atob(fileContent);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const { triangles, normals } = parseSTL(bytes.buffer);
+
+  // Cast process to ProcessType since we know it's valid from the schema
+  const processType = process as ProcessType;
+  const wallThickness = analyzeWallThickness(triangles, processType);
+  const overhangs = analyzeOverhangs(triangles, normals);
+
+  return {
+    wallThickness,
+    overhangs,
+    holeSize: { issues: [], pass: true },
+    draftAngles: { issues: [], pass: true }
+  };
+}
+
 const MIN_WALL_THICKNESS = {
   '3d_printing': 0.8, // mm
   'injection_molding': 1.0, // mm
@@ -18,117 +148,6 @@ const MAX_TRIANGLES = 5000; // Maximum number of triangles to analyze
 const SAMPLING_RATE = 5; // Only analyze every Nth triangle
 
 type ProcessType = keyof typeof MIN_WALL_THICKNESS;
-
-interface STLParseResult {
-  triangles: Float32Array;
-  normals: Float32Array;
-}
-
-function isAsciiSTL(data: ArrayBuffer): boolean {
-  const headerView = new Uint8Array(data, 0, 5);
-  const decoder = new TextDecoder();
-  const header = decoder.decode(headerView);
-  return header.trim().toLowerCase() === 'solid';
-}
-
-function parseAsciiSTL(text: string): STLParseResult {
-  const lines = text.split('\n').map(line => line.trim());
-  const vertices: number[] = [];
-  const normals: number[] = [];
-  let currentNormal: number[] | null = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].toLowerCase();
-    if (line.startsWith('facet normal ')) {
-      const parts = line.split(/\s+/);
-      currentNormal = [
-        parseFloat(parts[2]),
-        parseFloat(parts[3]),
-        parseFloat(parts[4])
-      ];
-    } else if (line.startsWith('vertex ')) {
-      const parts = line.split(/\s+/);
-      vertices.push(
-        parseFloat(parts[1]),
-        parseFloat(parts[2]),
-        parseFloat(parts[3])
-      );
-      if (currentNormal) {
-        normals.push(...currentNormal);
-      }
-    }
-  }
-
-  return {
-    triangles: new Float32Array(vertices),
-    normals: new Float32Array(normals)
-  };
-}
-
-export function parseSTL(data: ArrayBuffer): STLParseResult {
-  if (data.byteLength === 0) {
-    throw new Error("Empty STL file provided");
-  }
-
-  const startTime = Date.now();
-  console.log('Starting STL parsing...');
-
-  try {
-    const isBinary = !isAsciiSTL(data);
-    console.log('STL Format:', isBinary ? 'Binary' : 'ASCII');
-
-    if (!isBinary) {
-      const decoder = new TextDecoder();
-      const text = decoder.decode(data);
-      return parseAsciiSTL(text);
-    }
-
-    if (data.byteLength < 84) {
-      throw new Error("Invalid STL file: Too small for binary format");
-    }
-
-    const view = new DataView(data);
-    const triangleCount = view.getUint32(80, true);
-    const expectedSize = 84 + (triangleCount * 50);
-
-    if (triangleCount <= 0 || triangleCount > 5000000 || data.byteLength !== expectedSize) {
-      throw new Error(`Invalid binary STL file: Expected size ${expectedSize}, got ${data.byteLength}`);
-    }
-
-    console.log('Processing STL with', triangleCount, 'triangles');
-
-    const triangles = new Float32Array(triangleCount * 9);
-    const normals = new Float32Array(triangleCount * 3);
-
-    let offset = 84; // Skip header
-    for (let i = 0; i < triangleCount; i++) {
-      if (Date.now() - startTime > MAX_PROCESSING_TIME) {
-        throw new Error("STL parsing timeout: File too complex");
-      }
-
-      // Read normal
-      normals[i * 3] = view.getFloat32(offset, true);
-      normals[i * 3 + 1] = view.getFloat32(offset + 4, true);
-      normals[i * 3 + 2] = view.getFloat32(offset + 8, true);
-
-      // Read vertices
-      for (let j = 0; j < 3; j++) {
-        const vertexOffset = offset + 12 + (j * 12);
-        triangles[i * 9 + j * 3] = view.getFloat32(vertexOffset, true);
-        triangles[i * 9 + j * 3 + 1] = view.getFloat32(vertexOffset + 4, true);
-        triangles[i * 9 + j * 3 + 2] = view.getFloat32(vertexOffset + 8, true);
-      }
-
-      offset += 50;
-    }
-
-    console.log('STL parsing completed in', Date.now() - startTime, 'ms');
-    return { triangles, normals };
-  } catch (error) {
-    console.error('STL parsing error:', error);
-    throw error;
-  }
-}
 
 interface GeometryAnalysisResult {
   issues: string[];
@@ -171,7 +190,7 @@ function processGeometryChunk(
 
     const avgThickness = (thickness1 + thickness2 + thickness3) / 3;
 
-    if (avgThickness < minThickness && avgThickness > 0.01) { // Filter out extremely small values that might be noise
+    if (avgThickness < minThickness && avgThickness > 0.01) {
       const recommendation = getManufacturingRecommendation(process, avgThickness, minThickness);
       issues.push(
         `${avgThickness.toFixed(2)}mm wall - ${recommendation}`
@@ -284,45 +303,4 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   console.log('Overhang analysis completed in', Date.now() - startTime, 'ms');
   console.log('Found', issues.length, 'overhang issues');
   return { issues, pass };
-}
-
-export function analyzeGeometry(fileContent: string, process: ProcessType): DFMReport {
-  if (!fileContent) {
-    throw new Error("No file content provided for analysis");
-  }
-
-  console.log('Starting geometry analysis for process:', process);
-  const startTime = Date.now();
-
-  try {
-    const binaryString = atob(fileContent);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    console.log('Binary data size:', bytes.buffer.byteLength, 'bytes');
-
-    const { triangles, normals } = parseSTL(bytes.buffer);
-    console.log('Successfully parsed STL geometry');
-
-    const wallThickness = analyzeWallThickness(triangles, process);
-    const overhangs = analyzeOverhangs(triangles, normals);
-
-    console.log('Analysis complete:', {
-      wallThicknessIssues: wallThickness.issues.length,
-      overhangIssues: overhangs.issues.length,
-      totalTime: Date.now() - startTime,
-    });
-
-    return {
-      wallThickness,
-      overhangs,
-      holeSize: { issues: [], pass: true },
-      draftAngles: { issues: [], pass: true }
-    };
-  } catch (error) {
-    console.error('Geometry analysis error:', error);
-    throw error;
-  }
 }
