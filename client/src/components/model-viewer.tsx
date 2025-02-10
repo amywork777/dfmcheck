@@ -30,11 +30,12 @@ interface IssueLabelProps {
 function IssueLabel({ position, text, color }: IssueLabelProps) {
   return (
     <Html position={[position.x, position.y, position.z]}>
-      <div className="px-2 py-1 text-xs rounded-md" style={{ 
+      <div className="px-2 py-1 text-xs rounded-md shadow-lg" style={{ 
         backgroundColor: color, 
         color: 'white',
-        opacity: 0.9,
-        whiteSpace: 'nowrap'
+        opacity: 0.95,
+        whiteSpace: 'nowrap',
+        fontWeight: 'bold'
       }}>
         {text}
       </div>
@@ -66,17 +67,21 @@ function IssueHighlight({ position, color, type, size = 0.05, measurement }: Iss
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color={color} linewidth={2} />
+          <lineBasicMaterial color={color} linewidth={3} />
         </line>
       ) : (
         <mesh position={position}>
           <sphereGeometry args={[size, 16, 16]} />
-          <meshBasicMaterial color={color} transparent opacity={0.8} />
+          <meshBasicMaterial color={color} transparent opacity={0.9} />
         </mesh>
       )}
       {measurement && (
         <IssueLabel 
-          position={position} 
+          position={new THREE.Vector3(
+            position.x,
+            position.y + (type === 'line' ? 0.1 : 0.15),
+            position.z
+          )}
           text={measurement} 
           color={color} 
         />
@@ -100,8 +105,8 @@ function Model({ geometry, analysisReport }: ModelProps) {
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute;
 
-    // Sample fewer triangles for better performance
-    const sampleRate = Math.max(1, Math.floor(positionAttr.count / 100));
+    // Optimized sampling rate based on model complexity
+    const sampleRate = Math.max(1, Math.floor(positionAttr.count / (positionAttr.count > 10000 ? 200 : 50)));
 
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
@@ -111,14 +116,14 @@ function Model({ geometry, analysisReport }: ModelProps) {
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
         const thickness = v2.distanceTo(v1);
-        if (thickness < 1.2) {
+        if (thickness < 1.2 && thickness > 0.01) { // Filter out noise
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({ 
             position: center, 
             color: '#ff4444',
             type: 'line',
             size: thickness * 2,
-            measurement: `${thickness.toFixed(1)}mm wall`
+            measurement: `${thickness.toFixed(2)}mm wall`
           });
         }
       }
@@ -126,7 +131,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
     // Process overhang issues
     if (analysisReport.overhangs.issues.length > 0) {
-      const normalSampleRate = Math.max(1, Math.floor(normalAttr.count / 100));
+      const normalSampleRate = Math.max(1, Math.floor(normalAttr.count / (normalAttr.count > 10000 ? 150 : 75)));
       for (let i = 0; i < normalAttr.count; i += normalSampleRate) {
         const normal = new THREE.Vector3().fromBufferAttribute(normalAttr, i);
         const angle = Math.acos(normal.z) * (180 / Math.PI);
@@ -147,18 +152,18 @@ function Model({ geometry, analysisReport }: ModelProps) {
     // Process hole size issues
     if (analysisReport.holeSize.issues.length > 0) {
       const holePositions = findHoles(geometry, sampleRate);
-      holePositions.slice(0, 20).forEach(({ position, radius }) => {
+      holePositions.slice(0, 15).forEach(({ position, radius }) => {
         points.push({
           position,
           color: '#4444ff',
           type: 'point',
           size: 0.06,
-          measurement: `${(radius * 2).toFixed(1)}mm hole`
+          measurement: `${(radius * 2).toFixed(2)}mm hole`
         });
       });
     }
 
-    setIssuePoints(points.slice(0, 50)); // Limit total number of indicators for performance
+    setIssuePoints(points.slice(0, 30)); // Limit total indicators for better performance
   }, [geometry, analysisReport]);
 
   return (
@@ -166,7 +171,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
       <ambientLight intensity={0.5} />
       <pointLight position={[10, 10, 10]} />
       <mesh geometry={geometry}>
-        <meshPhongMaterial color="#666" transparent opacity={0.9} />
+        <meshPhongMaterial color="#666" transparent opacity={0.85} /> {/* Increased transparency for better visibility */}
       </mesh>
       {issuePoints.map((point, index) => (
         <IssueHighlight key={index} {...point} />

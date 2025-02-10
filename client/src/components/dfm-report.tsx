@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, XCircle, Info } from "lucide-react";
+import { CheckCircle2, XCircle, Info, Ruler } from "lucide-react";
 import type { DFMReport as DFMReportType } from "@shared/schema";
 
 const PROCESS_DESCRIPTIONS = {
@@ -8,6 +8,13 @@ const PROCESS_DESCRIPTIONS = {
   'cnc_machining': 'Subtractive manufacturing process using computer-controlled cutting tools. Ideal for precise metal parts.',
   'injection_molding': 'Process of injecting molten material into a mold cavity. Perfect for high-volume plastic parts.',
   'sheet_metal': 'Manufacturing process for creating parts from flat metal sheets. Good for enclosures and brackets.'
+} as const;
+
+const MIN_WALL_THICKNESS = {
+  '3d_printing': 0.8,
+  'injection_molding': 1.0,
+  'cnc_machining': 1.2,
+  'sheet_metal': 0.5
 } as const;
 
 const CONSTRAINT_DESCRIPTIONS = {
@@ -25,13 +32,14 @@ interface DFMReportProps {
 
 export function DFMReport({ report, fileName, process }: DFMReportProps) {
   const sections = [
-    { key: 'wallThickness', title: 'Wall Thickness' },
+    { key: 'wallThickness', title: 'Wall Thickness', icon: Ruler },
     { key: 'overhangs', title: 'Overhangs' },
     { key: 'holeSize', title: 'Hole Sizes' },
     { key: 'draftAngles', title: 'Draft Angles' }
   ];
 
   const processName = process.replace(/_/g, ' ').toUpperCase();
+  const minThickness = MIN_WALL_THICKNESS[process as keyof typeof MIN_WALL_THICKNESS];
 
   return (
     <div className="space-y-6">
@@ -40,14 +48,22 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
           <Info className="h-5 w-5 text-blue-500 mt-1" />
           <div>
             <h3 className="font-medium mb-2">Manufacturing Process: {processName}</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-2">
               {PROCESS_DESCRIPTIONS[process as keyof typeof PROCESS_DESCRIPTIONS]}
             </p>
+            <div className="text-sm bg-muted p-2 rounded-md">
+              <strong>Minimum Requirements:</strong>
+              <ul className="list-disc list-inside mt-1">
+                <li>Wall Thickness: {minThickness}mm minimum</li>
+                <li>Overhang Angle: 45° maximum without supports</li>
+                <li>Hole Size: 2mm minimum diameter</li>
+              </ul>
+            </div>
           </div>
         </div>
       </Card>
 
-      {sections.map(({ key, title }) => {
+      {sections.map(({ key, title, icon: Icon }) => {
         const section = report[key as keyof DFMReportType];
 
         return (
@@ -58,20 +74,34 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
               ) : (
                 <XCircle className="h-5 w-5 text-red-500 mt-1" />
               )}
-              <div>
-                <h3 className="font-medium mb-1">{title}</h3>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-medium">{title}</h3>
+                  {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+                </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   {CONSTRAINT_DESCRIPTIONS[key as keyof typeof CONSTRAINT_DESCRIPTIONS]}
                 </p>
 
                 {section.issues.length > 0 ? (
                   <div className="space-y-3">
-                    {section.issues.map((issue, i) => (
-                      <Alert key={i} variant={section.pass ? "default" : "destructive"}>
-                        <AlertTitle>Manufacturing Constraint {i + 1}</AlertTitle>
-                        <AlertDescription>{issue}</AlertDescription>
-                      </Alert>
-                    ))}
+                    {section.issues.map((issue, i) => {
+                      const [measurement, ...recommendationParts] = issue.split(' - ');
+                      const recommendation = recommendationParts.join(' - ');
+
+                      return (
+                        <Alert key={i} variant={section.pass ? "default" : "destructive"}>
+                          <AlertTitle className="flex items-center gap-2">
+                            <span className="font-mono bg-muted px-2 py-1 rounded text-sm">
+                              {measurement}
+                            </span>
+                          </AlertTitle>
+                          <AlertDescription className="mt-2">
+                            <p>{recommendation}</p>
+                          </AlertDescription>
+                        </Alert>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-green-600">✓ Meets manufacturing requirements</p>

@@ -8,9 +8,8 @@ import { manufacturingProcesses } from "@shared/schema";
 import { analyzeGeometry } from "@/lib/geometry";
 import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
-import { Loader2 } from "lucide-react";
 import type { DFMReport } from "@shared/schema";
 
 export default function Home() {
@@ -22,7 +21,7 @@ export default function Home() {
   const [analysisReport, setAnalysisReport] = useState<DFMReport | null>(null);
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ file, process }: { file: File, process: string }) => {
+    mutationFn: async ({ file, process }: { file: File; process: typeof manufacturingProcesses[number] }) => {
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => abortController.abort(), 45000); // 45s timeout
 
@@ -48,7 +47,7 @@ export default function Home() {
           fileContent: base64,
           process,
           report
-        }, { signal: abortController.signal });
+        });
 
         return await response.json();
       } catch (error: any) {
@@ -77,7 +76,7 @@ export default function Home() {
     }
   });
 
-  const handleAnalyze = useCallback(async (process: string) => {
+  const handleAnalyze = useCallback(async (process: typeof manufacturingProcesses[number]) => {
     if (selectedFile) {
       analyzeMutation.mutate({ file: selectedFile, process });
     }
