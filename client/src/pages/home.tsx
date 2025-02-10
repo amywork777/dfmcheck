@@ -21,6 +21,9 @@ export default function Home() {
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 45000); // 45s timeout
+
       try {
         setAnalyzing(true);
         console.log('Reading file:', file.name, 'size:', file.size);
@@ -44,17 +47,21 @@ export default function Home() {
           fileContent: base64,
           process,
           report
-        });
+        }, { signal: abortController.signal });
 
         return await response.json();
       } catch (error: any) {
         console.error('Analysis error:', error);
+        if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+          throw new Error('Analysis timed out. The model might be too complex, try simplifying it first.');
+        }
         // If we get a specific error about ASCII STL, show a more helpful message
         if (error.message?.includes('save your STL file in binary format')) {
           throw new Error('Please save your STL file in binary format. Most 3D modeling software can export as binary STL.');
         }
         throw error;
       } finally {
+        clearTimeout(timeoutId);
         setAnalyzing(false);
       }
     },
