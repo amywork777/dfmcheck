@@ -16,12 +16,21 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
     if (!fileContent) return;
 
     const loader = new STLLoader();
-    const geometry = loader.parse(fileContent);
-    
+
+    // Convert base64 to binary
+    const binaryString = atob(fileContent);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const geometry = loader.parse(bytes.buffer);
+
     // Center the geometry
     geometry.center();
     geometry.computeBoundingBox();
-    
+
     setGeometry(geometry);
   }, [fileContent]);
 
