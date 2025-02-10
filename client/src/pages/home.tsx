@@ -20,26 +20,21 @@ export default function Home() {
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
       try {
-        const reader = new FileReader();
+        // Read file as array buffer first
+        const arrayBuffer = await file.arrayBuffer();
+        // Convert to base64
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer)
+            .reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
 
-        const content = await new Promise<string>((resolve, reject) => {
-          reader.onload = (e) => {
-            try {
-              const base64 = (e.target?.result as string).split(',')[1];
-              resolve(base64);
-            } catch (error) {
-              reject(new Error('Failed to read file content'));
-            }
-          };
-          reader.onerror = () => reject(new Error('Failed to read file'));
-          reader.readAsDataURL(file);
-        });
-
-        const report = analyzeGeometry(content, process);
+        console.log('File loaded, analyzing geometry...');
+        const report = analyzeGeometry(base64, process);
+        console.log('Analysis complete, sending to server...');
 
         const response = await apiRequest("POST", "/api/analyze", {
           fileName: file.name,
-          fileContent: content,
+          fileContent: base64,
           process,
           report
         });
@@ -68,23 +63,37 @@ export default function Home() {
     }
   }, [analyzeMutation, selectedFile]);
 
-  const handleFileSelected = useCallback((file: File) => {
+  const handleFileSelected = useCallback(async (file: File) => {
     if (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.step')) {
       setSelectedFile(file);
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const base64 = (e.target?.result as string).split(',')[1];
-        setFileContent(base64);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Read file as array buffer first
+        const arrayBuffer = await file.arrayBuffer();
+        // Convert to base64
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer)
+            .reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
 
-      toast({
-        title: "File uploaded successfully",
-        description: `Selected file: ${file.name}`,
-      });
-      return true;
+        setFileContent(base64);
+
+        toast({
+          title: "File uploaded successfully",
+          description: `Selected file: ${file.name}`,
+        });
+        return true;
+      } catch (error) {
+        console.error('File reading error:', error);
+        toast({
+          title: "Error reading file",
+          description: "Failed to read the file. Please try again.",
+          variant: "destructive"
+        });
+        return false;
+      }
     }
+
     toast({
       title: "Invalid file",
       description: "Please upload an STL or STEP file",
