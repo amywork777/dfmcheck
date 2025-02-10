@@ -14,6 +14,8 @@ const MIN_DRAFT_ANGLE = 3.0; // degrees
 const MAX_ISSUES_PER_CATEGORY = 10; // Limit number of reported issues
 const ANALYSIS_CHUNK_SIZE = 1000; // Number of triangles to process at once
 const MAX_PROCESSING_TIME = 30000; // Maximum processing time in ms
+const MAX_TRIANGLES = 5000; // Maximum number of triangles to analyze
+const SAMPLING_RATE = 5; // Only analyze every Nth triangle
 
 type ProcessType = keyof typeof MIN_WALL_THICKNESS;
 
@@ -235,8 +237,17 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   let pass = true;
 
   try {
+    // Calculate sampling rate based on model complexity
+    const totalTriangles = triangles.length / 9;
+    const effectiveSamplingRate = Math.max(
+      SAMPLING_RATE,
+      Math.ceil(totalTriangles / MAX_TRIANGLES)
+    );
+
+    console.log(`Processing ${Math.floor(totalTriangles / effectiveSamplingRate)} triangles...`);
+
     // Process triangles in groups of 3 vertices (1 face)
-    for (let i = 0; i < triangles.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9) {
+    for (let i = 0; i < triangles.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9 * effectiveSamplingRate) {
       if (Date.now() - startTime > MAX_PROCESSING_TIME) {
         throw new Error("Overhang analysis timeout: Model too complex");
       }
@@ -255,8 +266,9 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
       const upVector = new THREE.Vector3(0, 1, 0);
       const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-      // Check if angle exceeds overhang threshold
-      if (angle > MAX_OVERHANG_ANGLE) {
+      // Check if angle exceeds overhang threshold and the face is large enough to matter
+      const faceArea = edge1.cross(edge2).length() / 2;
+      if (angle > MAX_OVERHANG_ANGLE && faceArea > 0.01) {
         const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
         issues.push(
           `${angle.toFixed(1)}° overhang - support structures required for angles over ${MAX_OVERHANG_ANGLE}°`

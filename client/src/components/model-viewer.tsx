@@ -160,15 +160,21 @@ function Model({ geometry, analysisReport }: ModelProps) {
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     let idCounter = 0;
 
+    // Calculate sampling rate based on model complexity
+    const totalTriangles = positionAttr.count / 3;
+    const samplingRate = Math.max(5, Math.ceil(totalTriangles / 5000));
+
+    console.log(`Processing visualization with sampling rate: ${samplingRate}`);
+
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3) {
+      for (let i = 0; i < positionAttr.count && points.length < 50; i += 3 * samplingRate) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
         const thickness = v2.distanceTo(v1);
-        if (thickness < 1.2 && thickness > 0.01) { // Filter out noise
+        if (thickness < 1.2 && thickness > 0.01) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
@@ -185,29 +191,27 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
     // Process overhang issues with improved detection
     if (analysisReport.overhangs.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3) {
+      for (let i = 0; i < positionAttr.count && points.length < 100; i += 3 * samplingRate) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
-        // Calculate face normal
         const edge1 = new THREE.Vector3().subVectors(v2, v1);
         const edge2 = new THREE.Vector3().subVectors(v3, v1);
         const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
-
-        // Calculate angle with up vector
         const upVector = new THREE.Vector3(0, 1, 0);
         const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-        // Check for overhangs
-        if (angle > 45) {
+        // Only add markers for significant overhangs on larger faces
+        const faceArea = edge1.cross(edge2).length() / 2;
+        if (angle > 45 && faceArea > 0.01) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
             position: center,
             color: "#ff8800",
             type: "point",
-            size: 0.2, // Increased size for better visibility
+            size: 0.2,
             measurement: `${angle.toFixed(1)}° overhang`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
@@ -215,7 +219,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
       }
     }
 
-    console.log("Found issues:", points.length);
+    console.log("Visualization markers:", points.length);
     setIssuePoints(points);
   }, [geometry, analysisReport]);
 
