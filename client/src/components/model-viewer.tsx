@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { parseSTL } from "@/lib/geometry";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@/components/ui/progress"; 
 import type { DFMReport } from "@shared/schema";
 
 interface ModelViewerProps {
@@ -300,53 +300,29 @@ export function ModelViewer({
         const maxDim = Math.max(size.x, size.y, size.z);
         const minDim = Math.min(size.x, size.y, size.z);
 
-        // Smart scaling logic:
-        // For very small models (< 1mm): Use aggressive scaling (power of 0.7)
-        // For normal models (1-1000mm): Use linear scaling
-        // For large models (> 1000mm): Use conservative scaling (power of 1.2)
-        let scale = 2 / maxDim; // Default linear scaling
+        // Smart scaling:
+        // - For very small models (< 1mm), scale up significantly
+        // - For normal sized models (1mm - 1000mm), use standard scaling
+        // - For very large models (> 1000mm), scale down more aggressively
+        let scale = 2 / maxDim; // default scale
 
         if (maxDim < 1) {
-          // Small model scaling: More aggressive for better visibility
-          scale = 2 / Math.pow(maxDim, 0.7); // Increased from 0.8 for better small model visibility
-          console.log('Using aggressive scaling for small model:', {
-            originalSize: maxDim,
-            scaleFactor: scale,
-            resultingSize: maxDim * scale
-          });
+          // Small model, scale up more aggressively
+          scale = 2 / Math.pow(maxDim, 0.8);
         } else if (maxDim > 1000) {
-          // Large model scaling: More conservative to prevent oversized display
+          // Large model, scale down more conservatively
           scale = 2 / Math.pow(maxDim, 1.2);
-          console.log('Using conservative scaling for large model:', {
-            originalSize: maxDim,
-            scaleFactor: scale,
-            resultingSize: maxDim * scale
-          });
-        } else {
-          console.log('Using standard linear scaling:', {
-            originalSize: maxDim,
-            scaleFactor: scale,
-            resultingSize: maxDim * scale
-          });
         }
 
         // Apply scaling while preserving proportions
         threeGeometry.scale(scale, scale, scale);
 
-        // Log detailed model information for debugging
-        console.log('Model scaling details:', {
-          dimensions: {
-            original: { x: size.x, y: size.y, z: size.z },
-            scaled: {
-              x: size.x * scale,
-              y: size.y * scale,
-              z: size.z * scale
-            }
-          },
-          maxDimension: maxDim,
-          minDimension: minDim,
-          appliedScale: scale,
-          scalingMode: maxDim < 1 ? 'aggressive' : maxDim > 1000 ? 'conservative' : 'standard'
+        // Log the scaling information for debugging
+        console.log('Model dimensions:', {
+          original: { x: size.x, y: size.y, z: size.z },
+          maxDim,
+          minDim,
+          appliedScale: scale
         });
       }
 
