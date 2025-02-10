@@ -25,9 +25,9 @@ function Model({ geometry }: { geometry: THREE.BufferGeometry }) {
       <PerspectiveCamera makeDefault position={[0, 0, 5]} />
       <OrbitControls enablePan enableZoom enableRotate />
       <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 10, 5]} intensity={1} />
+      <pointLight position={[10, 10, 10]} intensity={1} />
       <mesh geometry={geometry}>
-        <meshStandardMaterial color="#666" />
+        <meshStandardMaterial color="#666" roughness={0.5} metalness={0.5} />
       </mesh>
     </>
   );
@@ -96,13 +96,21 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
   }
 
   return (
-    <div className={`w-full h-[400px] ${className}`}>
+    <div className={`w-full h-[400px] bg-gray-50 ${className}`}>
       <Suspense fallback={<LoadingFallback />}>
         <Canvas
           shadows
-          gl={{ preserveDrawingBuffer: true }}
+          dpr={[1, 2]}
+          gl={{
+            antialias: true,
+            alpha: true,
+            preserveDrawingBuffer: true,
+            powerPreference: "high-performance"
+          }}
+          camera={{ position: [0, 0, 5], fov: 50 }}
           onCreated={({ gl }) => {
             gl.setClearColor('#f8f9fa', 1);
+            gl.physicallyCorrectLights = true;
           }}
         >
           <Model geometry={geometry} />

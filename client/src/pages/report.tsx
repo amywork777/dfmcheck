@@ -85,32 +85,34 @@ export default function Report() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
-        <p className="text-muted-foreground">
-          Analysis results for <span className="font-medium">{analysis.fileName}</span>
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-4xl mx-auto py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
+          <p className="text-muted-foreground">
+            Analysis results for <span className="font-medium">{analysis.fileName}</span>
+          </p>
+        </div>
 
-      <div className="space-y-8">
-        <Card className="p-6">
-          <h3 className="font-medium mb-4">3D Model Preview</h3>
-          {analysis.fileContent ? (
-            <ModelViewer fileContent={analysis.fileContent} />
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>No model data available</AlertDescription>
-            </Alert>
-          )}
-        </Card>
+        <div className="space-y-8">
+          <Card className="p-6">
+            <h3 className="font-medium mb-4">3D Model Preview</h3>
+            {analysis.fileContent ? (
+              <ModelViewer fileContent={analysis.fileContent} />
+            ) : (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>No model data available</AlertDescription>
+              </Alert>
+            )}
+          </Card>
 
-        <DFMReport
-          report={report}
-          fileName={analysis.fileName}
-          process={analysis.process}
-        />
+          <DFMReport
+            report={report}
+            fileName={analysis.fileName}
+            process={analysis.process}
+          />
+        </div>
       </div>
     </div>
   );
