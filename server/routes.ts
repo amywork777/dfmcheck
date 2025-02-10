@@ -9,10 +9,12 @@ export function registerRoutes(app: Express) {
     try {
       const analysis = insertAnalysisSchema.parse(req.body);
       const result = await storage.createAnalysis(analysis);
+      console.log('Analysis created:', result.id);
       res.json(result);
-    } catch (error) {
-      if (error.name === 'ZodError') {
+    } catch (error: any) {
+      if (error?.name === 'ZodError') {
         const validationError = fromZodError(error);
+        console.error('Validation error:', validationError.message);
         res.status(400).json({ error: validationError.message });
       } else {
         console.error('Analysis error:', error);
@@ -25,14 +27,17 @@ export function registerRoutes(app: Express) {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
+        console.error('Invalid ID:', req.params.id);
         return res.status(400).json({ error: "Invalid ID" });
       }
 
       const analysis = await storage.getAnalysis(id);
       if (!analysis) {
+        console.error('Analysis not found:', id);
         return res.status(404).json({ error: "Analysis not found" });
       }
 
+      console.log('Analysis retrieved:', id);
       res.json(analysis);
     } catch (error) {
       console.error('Get analysis error:', error);

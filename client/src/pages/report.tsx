@@ -10,7 +10,7 @@ export default function Report() {
   const { id } = useParams();
 
   const { data: analysis, isLoading, error } = useQuery<Analysis>({
-    queryKey: ["/api/analysis", id],
+    queryKey: [`/api/analysis/${id}`],
     enabled: !!id
   });
 
