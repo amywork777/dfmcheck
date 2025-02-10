@@ -14,7 +14,18 @@ export default function Report() {
   const { data: analysis, isLoading, error } = useQuery<Analysis>({
     queryKey: [`/api/analysis/${id}`],
     enabled: !!id,
-    retry: false
+    retry: false,
+    onError: (error) => {
+      console.error('Analysis query error:', error);
+    },
+    onSuccess: (data) => {
+      console.log('Analysis data received:', {
+        id: data.id,
+        fileName: data.fileName,
+        process: data.process,
+        reportKeys: Object.keys(data.report || {})
+      });
+    }
   });
 
   if (isLoading) {
@@ -27,6 +38,7 @@ export default function Report() {
   }
 
   if (error) {
+    console.error('Error rendering report:', error);
     return (
       <div className="container max-w-4xl mx-auto py-12">
         <Alert variant="destructive">
@@ -54,6 +66,19 @@ export default function Report() {
 
   // Ensure the report matches our expected type
   const report = analysis.report as DFMReportType;
+  if (!report || !report.wallThickness || !report.overhangs || !report.holeSize || !report.draftAngles) {
+    console.error('Invalid report structure:', report);
+    return (
+      <div className="container max-w-4xl mx-auto py-12">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Invalid analysis report structure
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl mx-auto py-12">
@@ -67,7 +92,14 @@ export default function Report() {
       <div className="space-y-8">
         <Card className="p-6">
           <h3 className="font-medium mb-4">3D Model Preview</h3>
-          <ModelViewer fileContent={analysis.fileContent} />
+          {analysis.fileContent ? (
+            <ModelViewer fileContent={analysis.fileContent} />
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>No model data available</AlertDescription>
+            </Alert>
+          )}
         </Card>
 
         <DFMReport
