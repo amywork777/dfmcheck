@@ -22,8 +22,11 @@ export default function Home() {
       const reader = new FileReader();
 
       const content = await new Promise<string>((resolve) => {
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsText(file);
+        reader.onload = (e) => {
+          const base64 = (e.target?.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(file);
       });
 
       const report = analyzeGeometry(content, process);
@@ -56,14 +59,15 @@ export default function Home() {
   }, [analyzeMutation, selectedFile]);
 
   const handleFileSelected = useCallback((file: File) => {
-    if (file.name.endsWith('.stl') || file.name.endsWith('.step')) {
+    if (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.step')) {
       setSelectedFile(file);
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFileContent(e.target?.result as string);
+        const base64 = (e.target?.result as string).split(',')[1];
+        setFileContent(base64);
       };
-      reader.readAsText(file);
+      reader.readAsDataURL(file);
 
       toast({
         title: "File uploaded successfully",
