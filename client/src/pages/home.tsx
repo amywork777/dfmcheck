@@ -51,6 +51,19 @@ export default function Home() {
     }
   }, [analyzeMutation, selectedFile]);
 
+  const handleFileSelected = useCallback((file: File) => {
+    if (file.name.endsWith('.stl') || file.name.endsWith('.step')) {
+      setSelectedFile(file);
+      return true;
+    }
+    toast({
+      title: "Invalid file",
+      description: "Please upload an STL or STEP file",
+      variant: "destructive"
+    });
+    return false;
+  }, [toast]);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto py-12">
@@ -65,18 +78,8 @@ export default function Home() {
 
         <div className="space-y-8">
           <FileUpload
-            onFileSelected={(file) => {
-              if (file.name.endsWith('.stl') || file.name.endsWith('.step')) {
-                setSelectedFile(file);
-                return true;
-              }
-              toast({
-                title: "Invalid file",
-                description: "Please upload an STL or STEP file",
-                variant: "destructive"
-              });
-              return false;
-            }}
+            onFileSelected={handleFileSelected}
+            onFileUploaded={setSelectedFile}
             maxSize={10 * 1024 * 1024} // 10MB
             accept=".stl,.step"
           />

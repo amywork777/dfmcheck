@@ -10,20 +10,26 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: FileUploadProps) {
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
+  const handleFile = useCallback((file: File) => {
     if (file && file.size <= maxSize && onFileSelected(file)) {
       onFileUploaded(file);
     }
   }, [maxSize, onFileSelected, onFileUploaded]);
 
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFile(file);
+    }
+  }, [handleFile]);
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.size <= maxSize && onFileSelected(file)) {
-      onFileUploaded(file);
+    if (file) {
+      handleFile(file);
     }
-  }, [maxSize, onFileSelected, onFileUploaded]);
+  }, [handleFile]);
 
   return (
     <Card className="p-8">
