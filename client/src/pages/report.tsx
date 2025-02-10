@@ -5,6 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import type { Analysis } from "@shared/schema";
+import { ModelViewer } from "@/components/model-viewer"; // Added import
+import { Card } from "@/components/ui/card"; // Added import, assuming Card component exists
+
 
 export default function Report() {
   const { id } = useParams();
@@ -58,11 +61,18 @@ export default function Report() {
         </p>
       </div>
 
-      <DFMReport 
-        report={analysis.report}
-        fileName={analysis.fileName}
-        process={analysis.process}
-      />
+      <div className="space-y-8"> {/* Added div for spacing */}
+        <Card className="p-6"> {/* Added Card component */}
+          <h3 className="font-medium mb-4">3D Model</h3>
+          <ModelViewer fileContent={analysis.fileContent} />
+        </Card>
+
+        <DFMReport
+          report={analysis.report}
+          fileName={analysis.fileName}
+          process={analysis.process}
+        />
+      </div>
     </div>
   );
 }

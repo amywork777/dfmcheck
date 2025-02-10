@@ -9,11 +9,13 @@ import { analyzeGeometry } from "@/lib/geometry";
 import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
+import { ModelViewer } from "@/components/model-viewer";
 
 export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
@@ -56,6 +58,13 @@ export default function Home() {
   const handleFileSelected = useCallback((file: File) => {
     if (file.name.endsWith('.stl') || file.name.endsWith('.step')) {
       setSelectedFile(file);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFileContent(e.target?.result as string);
+      };
+      reader.readAsText(file);
+
       toast({
         title: "File uploaded successfully",
         description: `Selected file: ${file.name}`,
@@ -89,6 +98,13 @@ export default function Home() {
             maxSize={10 * 1024 * 1024} // 10MB
             accept=".stl,.step"
           />
+
+          {fileContent && (
+            <Card className="p-6">
+              <h3 className="font-medium mb-4">3D Preview</h3>
+              <ModelViewer fileContent={fileContent} />
+            </Card>
+          )}
 
           {selectedFile && (
             <Card className="p-4 bg-green-50">
