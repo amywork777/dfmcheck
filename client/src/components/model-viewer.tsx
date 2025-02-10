@@ -21,23 +21,58 @@ function LoadingFallback() {
   );
 }
 
-function IssueHighlight({ position, color }: { position: THREE.Vector3; color: string }) {
+function IssueHighlight({ 
+  position, 
+  color, 
+  type,
+  size = 0.05 
+}: { 
+  position: THREE.Vector3; 
+  color: string;
+  type: 'point' | 'line';
+  size?: number;
+}) {
+  if (type === 'line') {
+    return (
+      <line>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={2}
+            array={new Float32Array([
+              position.x - size, position.y, position.z,
+              position.x + size, position.y, position.z
+            ])}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial color={color} linewidth={2} />
+      </line>
+    );
+  }
+
   return (
     <mesh position={position}>
-      <sphereGeometry args={[0.05, 16, 16]} />
+      <sphereGeometry args={[size, 16, 16]} />
       <meshBasicMaterial color={color} transparent opacity={0.8} />
     </mesh>
   );
 }
 
 function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; analysisReport?: DFMReport }) {
-  const [issuePoints, setIssuePoints] = useState<Array<{ position: THREE.Vector3; color: string }>>([]);
+  const [issuePoints, setIssuePoints] = useState<Array<{ 
+    position: THREE.Vector3; 
+    color: string;
+    type: 'point' | 'line';
+    size?: number;
+  }>>([]);
 
   useEffect(() => {
     if (!analysisReport || !geometry) return;
 
-    const points: Array<{ position: THREE.Vector3; color: string }> = [];
+    const points: Array<{ position: THREE.Vector3; color: string; type: 'point' | 'line'; size?: number }> = [];
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute;
 
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
@@ -45,22 +80,50 @@ function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; a
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
-        const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
-        points.push({ position: center, color: '#ff4444' }); // Red for thin walls
+
+        const thickness = v2.distanceTo(v1);
+        if (thickness < 1.2) { // Using CNC machining minimum wall thickness as reference
+          const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
+          points.push({ 
+            position: center, 
+            color: '#ff4444', // Red for thin walls
+            type: 'line',
+            size: thickness * 2 // Make line length proportional to wall thickness
+          });
+        }
       }
     }
 
     // Process overhang issues
     if (analysisReport.overhangs.issues.length > 0) {
-      const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute;
       for (let i = 0; i < normalAttr.count; i++) {
         const normal = new THREE.Vector3().fromBufferAttribute(normalAttr, i);
         const angle = Math.acos(normal.z) * (180 / Math.PI);
+
         if (angle > 45) {
           const position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
-          points.push({ position, color: '#ffaa00' }); // Orange for overhangs
+          points.push({ 
+            position, 
+            color: '#ffaa00', // Orange for overhangs
+            type: 'point',
+            size: 0.08 // Larger indicators for overhang issues
+          });
         }
       }
+    }
+
+    // Process hole size issues for CNC machining
+    if (analysisReport.holeSize.issues.length > 0) {
+      // Add visual indicators for small holes
+      const holePositions = findHoles(geometry);
+      holePositions.forEach(pos => {
+        points.push({
+          position: pos,
+          color: '#4444ff', // Blue for hole size issues
+          type: 'point',
+          size: 0.06
+        });
+      });
     }
 
     setIssuePoints(points);
@@ -74,11 +137,39 @@ function Model({ geometry, analysisReport }: { geometry: THREE.BufferGeometry; a
         <meshPhongMaterial color="#666" transparent opacity={0.9} />
       </mesh>
       {issuePoints.map((point, index) => (
-        <IssueHighlight key={index} position={point.position} color={point.color} />
+        <IssueHighlight 
+          key={index} 
+          position={point.position} 
+          color={point.color}
+          type={point.type}
+          size={point.size}
+        />
       ))}
       <OrbitControls />
     </>
   );
+}
+
+function findHoles(geometry: THREE.BufferGeometry): THREE.Vector3[] {
+  const positions: THREE.Vector3[] = [];
+  const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
+
+  // Simplified hole detection - look for circular patterns in vertices
+  for (let i = 0; i < positionAttr.count; i += 3) {
+    const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
+    const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
+    const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
+
+    // Check if vertices form a roughly circular pattern
+    const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
+    const radius = v1.distanceTo(center);
+
+    if (radius < 1.0) { // Small holes less than 2mm diameter
+      positions.push(center);
+    }
+  }
+
+  return positions;
 }
 
 export function ModelViewer({ fileContent, className = "", analysisReport }: ModelViewerProps) {
@@ -152,12 +243,18 @@ export function ModelViewer({ fileContent, className = "", analysisReport }: Mod
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ff4444]" />
-            <span>Thin Walls</span>
+            <span>Thin Walls (Red Lines)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ffaa00]" />
-            <span>Overhangs</span>
+            <span>Overhangs (Orange Dots)</span>
           </div>
+          {analysisReport.holeSize.issues.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#4444ff]" />
+              <span>Small Holes (Blue Dots)</span>
+            </div>
+          )}
         </div>
       )}
     </div>
