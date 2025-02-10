@@ -19,34 +19,44 @@ export default function Home() {
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
-      const reader = new FileReader();
+      try {
+        const reader = new FileReader();
 
-      const content = await new Promise<string>((resolve) => {
-        reader.onload = (e) => {
-          const base64 = (e.target?.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.readAsDataURL(file);
-      });
+        const content = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            try {
+              const base64 = (e.target?.result as string).split(',')[1];
+              resolve(base64);
+            } catch (error) {
+              reject(new Error('Failed to read file content'));
+            }
+          };
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
 
-      const report = analyzeGeometry(content, process);
+        const report = analyzeGeometry(content, process);
 
-      const response = await apiRequest("POST", "/api/analyze", {
-        fileName: file.name,
-        fileContent: content,
-        process,
-        report
-      });
+        const response = await apiRequest("POST", "/api/analyze", {
+          fileName: file.name,
+          fileContent: content,
+          process,
+          report
+        });
 
-      return await response.json();
+        return await response.json();
+      } catch (error) {
+        console.error('Analysis error:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       setLocation(`/report/${data.id}`);
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Error",
-        description: "Failed to analyze file. Please try again.",
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze file. Please try again.",
         variant: "destructive"
       });
     }
