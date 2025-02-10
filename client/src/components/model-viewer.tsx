@@ -1,14 +1,36 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 interface ModelViewerProps {
   fileContent: string;
   className?: string;
+}
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+function Model({ geometry }: { geometry: THREE.BufferGeometry }) {
+  return (
+    <>
+      <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+      <OrbitControls enablePan enableZoom enableRotate />
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[10, 10, 5]} intensity={1} />
+      <mesh geometry={geometry}>
+        <meshStandardMaterial color="#666" />
+      </mesh>
+    </>
+  );
 }
 
 export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
@@ -39,9 +61,17 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
 
       const geometry = loader.parse(bytes.buffer);
 
-      // Center the geometry
+      // Center and normalize the geometry
       geometry.center();
       geometry.computeBoundingBox();
+
+      if (geometry.boundingBox) {
+        const size = new THREE.Vector3();
+        geometry.boundingBox.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 2 / maxDim; // Scale to fit in a 2x2x2 box
+        geometry.scale(scale, scale, scale);
+      }
 
       console.log('STL geometry loaded successfully');
       setGeometry(geometry);
@@ -61,19 +91,23 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
     );
   }
 
-  if (!geometry) return null;
+  if (!geometry) {
+    return <LoadingFallback />;
+  }
 
   return (
     <div className={`w-full h-[400px] ${className}`}>
-      <Canvas>
-        <PerspectiveCamera makeDefault position={[0, 0, 5]} />
-        <OrbitControls enablePan enableZoom enableRotate />
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <mesh geometry={geometry}>
-          <meshStandardMaterial color="#666" />
-        </mesh>
-      </Canvas>
+      <Suspense fallback={<LoadingFallback />}>
+        <Canvas
+          shadows
+          gl={{ preserveDrawingBuffer: true }}
+          onCreated={({ gl }) => {
+            gl.setClearColor('#f8f9fa', 1);
+          }}
+        >
+          <Model geometry={geometry} />
+        </Canvas>
+      </Suspense>
     </div>
   );
 }

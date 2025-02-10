@@ -14,8 +14,9 @@ export default function Report() {
   const { data: analysis, isLoading, error } = useQuery<Analysis>({
     queryKey: [`/api/analysis/${id}`],
     enabled: !!id,
-    retry: false,
-    onError: (error) => {
+    retry: 1,
+    staleTime: 0,
+    onError: (error: Error) => {
       console.error('Analysis query error:', error);
     },
     onSuccess: (data) => {
@@ -31,8 +32,11 @@ export default function Report() {
   if (isLoading) {
     return (
       <div className="container max-w-4xl mx-auto py-12">
-        <Skeleton className="h-8 w-64 mb-4" />
-        <Skeleton className="h-[400px]" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-[400px]" />
+        </div>
       </div>
     );
   }
