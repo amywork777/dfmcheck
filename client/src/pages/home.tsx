@@ -71,7 +71,7 @@ export default function Home() {
   }, [analyzeMutation, selectedFile]);
 
   const handleFileSelected = useCallback(async (file: File) => {
-    if (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.step')) {
+    if (file.name.toLowerCase().endsWith('.stl')) {
       try {
         // Check file size
         if (file.size > 50 * 1024 * 1024) { // 50MB limit
@@ -90,7 +90,7 @@ export default function Home() {
         const arrayBuffer = await file.arrayBuffer();
 
         // Basic validation of STL format
-        if (file.name.toLowerCase().endsWith('.stl') && arrayBuffer.byteLength < 84) {
+        if (arrayBuffer.byteLength < 84) {
           toast({
             title: "Invalid STL file",
             description: "The file appears to be corrupted or invalid",
@@ -104,6 +104,13 @@ export default function Home() {
           new Uint8Array(arrayBuffer)
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
+
+        console.log('File processed:', {
+          name: file.name,
+          size: file.size,
+          arrayBufferSize: arrayBuffer.byteLength,
+          base64Length: base64.length
+        });
 
         setFileContent(base64);
 
@@ -125,7 +132,7 @@ export default function Home() {
 
     toast({
       title: "Invalid file type",
-      description: "Please upload an STL or STEP file",
+      description: "Please upload an STL file",
       variant: "destructive"
     });
     return false;
@@ -148,7 +155,7 @@ export default function Home() {
             onFileSelected={handleFileSelected}
             onFileUploaded={setSelectedFile}
             maxSize={10 * 1024 * 1024} // 10MB
-            accept=".stl,.step"
+            accept=".stl"
           />
 
           {fileContent && (

@@ -52,10 +52,20 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      console.log('Loading STL...', bytes.length, 'bytes');
+      console.log('STL buffer size:', bytes.buffer.byteLength);
 
-      const loadedGeometry = loader.parse(bytes.buffer);
-      console.log('STL loaded successfully');
+      let loadedGeometry;
+      try {
+        loadedGeometry = loader.parse(bytes.buffer);
+        console.log('STL parsed successfully');
+
+        // Log geometry details for debugging
+        console.log('Geometry vertices:', loadedGeometry.attributes.position.count);
+        console.log('Geometry triangles:', loadedGeometry.attributes.position.count / 3);
+      } catch (parseError) {
+        console.error('STL parse error:', parseError);
+        throw new Error('Failed to parse STL file. Please ensure it is a valid binary STL file.');
+      }
 
       // Center and normalize
       loadedGeometry.center();
@@ -64,9 +74,12 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
       if (loadedGeometry.boundingBox) {
         const size = new THREE.Vector3();
         loadedGeometry.boundingBox.getSize(size);
+        console.log('Model size:', size);
+
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale = 2 / maxDim;
         loadedGeometry.scale(scale, scale, scale);
+        console.log('Applied scale:', scale);
       }
 
       setGeometry(loadedGeometry);
@@ -94,10 +107,11 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
     <div className={`w-full h-[400px] bg-gray-50 rounded-lg ${className}`}>
       <Suspense fallback={<LoadingFallback />}>
         <Canvas
-          camera={{ position: [0, 0, 5] }}
+          camera={{ position: [0, 0, 5], fov: 75 }}
           gl={{ 
             antialias: true,
-            alpha: true
+            alpha: true,
+            preserveDrawingBuffer: true
           }}
         >
           <Model geometry={geometry} />
