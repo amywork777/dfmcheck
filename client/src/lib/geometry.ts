@@ -246,17 +246,17 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
       const v2 = new THREE.Vector3(triangles[i + 3], triangles[i + 4], triangles[i + 5]);
       const v3 = new THREE.Vector3(triangles[i + 6], triangles[i + 7], triangles[i + 8]);
 
-      // Calculate face normal
+      // Calculate face normal using cross product
       const edge1 = new THREE.Vector3().subVectors(v2, v1);
       const edge2 = new THREE.Vector3().subVectors(v3, v1);
       const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
 
-      // Calculate angle between face normal and up vector (0,1,0)
+      // Calculate angle with UP vector (y-axis)
       const upVector = new THREE.Vector3(0, 1, 0);
-      const angle = Math.acos(normal.dot(upVector)) * (180 / Math.PI);
+      const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
       // Check if angle exceeds overhang threshold
-      if (angle > MAX_OVERHANG_ANGLE && angle < 180 - MAX_OVERHANG_ANGLE) {
+      if (angle > MAX_OVERHANG_ANGLE) {
         const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
         issues.push(
           `${angle.toFixed(1)}° overhang - support structures required for angles over ${MAX_OVERHANG_ANGLE}°`

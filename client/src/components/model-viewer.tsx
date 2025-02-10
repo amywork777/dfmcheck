@@ -158,7 +158,6 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
     const points: (IssueHighlightProps & { id: number })[] = [];
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
-    const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute;
     let idCounter = 0;
 
     // Process wall thickness issues
@@ -198,16 +197,17 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
         // Calculate angle with up vector
         const upVector = new THREE.Vector3(0, 1, 0);
-        const angle = Math.acos(normal.dot(upVector)) * (180 / Math.PI);
+        const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-        if (angle > 45 && angle < 135) {
+        // Check for overhangs
+        if (angle > 45) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
             position: center,
             color: "#ff8800",
             type: "point",
-            size: 0.15,
+            size: 0.2, // Increased size for better visibility
             measurement: `${angle.toFixed(1)}° overhang`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
@@ -227,7 +227,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
         <meshPhongMaterial
           color="#777"
           transparent
-          opacity={0.75}
+          opacity={0.8}
           side={THREE.DoubleSide}
         />
       </mesh>
