@@ -4,17 +4,17 @@ import { DFMReport } from "@/components/dfm-report";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import type { Analysis } from "@shared/schema";
-import { ModelViewer } from "@/components/model-viewer"; // Added import
-import { Card } from "@/components/ui/card"; // Added import, assuming Card component exists
-
+import type { Analysis, DFMReport as DFMReportType } from "@shared/schema";
+import { ModelViewer } from "@/components/model-viewer";
+import { Card } from "@/components/ui/card";
 
 export default function Report() {
   const { id } = useParams();
 
   const { data: analysis, isLoading, error } = useQuery<Analysis>({
     queryKey: [`/api/analysis/${id}`],
-    enabled: !!id
+    enabled: !!id,
+    retry: false
   });
 
   if (isLoading) {
@@ -32,7 +32,7 @@ export default function Report() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load analysis report. Please try again.
+            {error instanceof Error ? error.message : 'Failed to load analysis report'}
           </AlertDescription>
         </Alert>
       </div>
@@ -52,6 +52,9 @@ export default function Report() {
     );
   }
 
+  // Ensure the report matches our expected type
+  const report = analysis.report as DFMReportType;
+
   return (
     <div className="container max-w-4xl mx-auto py-12">
       <div className="mb-8">
@@ -61,14 +64,14 @@ export default function Report() {
         </p>
       </div>
 
-      <div className="space-y-8"> {/* Added div for spacing */}
-        <Card className="p-6"> {/* Added Card component */}
-          <h3 className="font-medium mb-4">3D Model</h3>
+      <div className="space-y-8">
+        <Card className="p-6">
+          <h3 className="font-medium mb-4">3D Model Preview</h3>
           <ModelViewer fileContent={analysis.fileContent} />
         </Card>
 
         <DFMReport
-          report={analysis.report}
+          report={report}
           fileName={analysis.fileName}
           process={analysis.process}
         />
