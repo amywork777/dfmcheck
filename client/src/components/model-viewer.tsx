@@ -30,12 +30,13 @@ interface IssueLabelProps {
 function IssueLabel({ position, text, color }: IssueLabelProps) {
   return (
     <Html position={[position.x, position.y, position.z]}>
-      <div className="px-2 py-1 text-xs rounded-md shadow-lg" style={{ 
+      <div className="px-3 py-1.5 text-sm rounded-md shadow-lg" style={{ 
         backgroundColor: color, 
         color: 'white',
         opacity: 0.95,
         whiteSpace: 'nowrap',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        border: '2px solid rgba(255,255,255,0.2)'
       }}>
         {text}
       </div>
@@ -67,19 +68,19 @@ function IssueHighlight({ position, color, type, size = 0.05, measurement }: Iss
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color={color} linewidth={3} />
+          <lineBasicMaterial color={color} linewidth={5} />
         </line>
       ) : (
         <mesh position={position}>
-          <sphereGeometry args={[size, 16, 16]} />
-          <meshBasicMaterial color={color} transparent opacity={0.9} />
+          <sphereGeometry args={[size * 1.5, 16, 16]} />
+          <meshBasicMaterial color={color} transparent opacity={0.95} />
         </mesh>
       )}
       {measurement && (
         <IssueLabel 
           position={new THREE.Vector3(
             position.x,
-            position.y + (type === 'line' ? 0.1 : 0.15),
+            position.y + (type === 'line' ? 0.15 : 0.2),
             position.z
           )}
           text={measurement} 
@@ -120,7 +121,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({ 
             position: center, 
-            color: '#ff4444',
+            color: '#ff2222',
             type: 'line',
             size: thickness * 2,
             measurement: `${thickness.toFixed(2)}mm wall`
@@ -140,9 +141,9 @@ function Model({ geometry, analysisReport }: ModelProps) {
           const position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
           points.push({ 
             position, 
-            color: '#ffaa00',
+            color: '#ff8800',
             type: 'point',
-            size: 0.08,
+            size: 0.1,
             measurement: `${angle.toFixed(1)}° overhang`
           });
         }
@@ -157,7 +158,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
           position,
           color: '#4444ff',
           type: 'point',
-          size: 0.06,
+          size: 0.08,
           measurement: `${(radius * 2).toFixed(2)}mm hole`
         });
       });
@@ -168,10 +169,10 @@ function Model({ geometry, analysisReport }: ModelProps) {
 
   return (
     <>
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} />
+      <ambientLight intensity={0.6} />
+      <pointLight position={[10, 10, 10]} intensity={0.8} />
       <mesh geometry={geometry}>
-        <meshPhongMaterial color="#666" transparent opacity={0.85} /> {/* Increased transparency for better visibility */}
+        <meshPhongMaterial color="#777" transparent opacity={0.75} /> {/* Increased transparency for better visibility */}
       </mesh>
       {issuePoints.map((point, index) => (
         <IssueHighlight key={index} {...point} />
@@ -271,11 +272,11 @@ export function ModelViewer({ fileContent, className = "", analysisReport }: Mod
       {analysisReport && (
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#ff4444]" />
+            <div className="w-3 h-3 rounded-full bg-[#ff2222]" />
             <span>Thin Walls (Red Lines)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#ffaa00]" />
+            <div className="w-3 h-3 rounded-full bg-[#ff8800]" />
             <span>Overhangs (Orange Dots)</span>
           </div>
           {analysisReport.holeSize.issues.length > 0 && (
