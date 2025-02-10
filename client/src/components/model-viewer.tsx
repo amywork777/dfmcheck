@@ -2,9 +2,9 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { Suspense, useEffect, useState } from "react";
 import * as THREE from "three";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { parseSTL } from "@/lib/geometry";
 
 interface ModelViewerProps {
   fileContent: string;
@@ -13,7 +13,7 @@ interface ModelViewerProps {
 
 function LoadingFallback() {
   return (
-    <div className="flex items-center justify-center h-full">
+    <div className="flex items-center justify-center h-full bg-gray-100">
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
     </div>
   );
@@ -43,8 +43,6 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
     }
 
     try {
-      const loader = new STLLoader();
-
       // Convert base64 to binary
       const binaryString = atob(fileContent);
       const bytes = new Uint8Array(binaryString.length);
@@ -54,35 +52,30 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
 
       console.log('STL buffer size:', bytes.buffer.byteLength);
 
-      let loadedGeometry;
-      try {
-        loadedGeometry = loader.parse(bytes.buffer);
-        console.log('STL parsed successfully');
+      // Parse STL and create geometry
+      const { triangles, normals } = parseSTL(bytes.buffer);
 
-        // Log geometry details for debugging
-        console.log('Geometry vertices:', loadedGeometry.attributes.position.count);
-        console.log('Geometry triangles:', loadedGeometry.attributes.position.count / 3);
-      } catch (parseError) {
-        console.error('STL parse error:', parseError);
-        throw new Error('Failed to parse STL file. Please ensure it is a valid binary STL file.');
-      }
+      // Create Three.js geometry
+      const threeGeometry = new THREE.BufferGeometry();
+      threeGeometry.setAttribute('position', new THREE.BufferAttribute(triangles, 3));
+      threeGeometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
 
       // Center and normalize
-      loadedGeometry.center();
-      loadedGeometry.computeBoundingBox();
+      threeGeometry.center();
+      threeGeometry.computeBoundingBox();
 
-      if (loadedGeometry.boundingBox) {
+      if (threeGeometry.boundingBox) {
         const size = new THREE.Vector3();
-        loadedGeometry.boundingBox.getSize(size);
+        threeGeometry.boundingBox.getSize(size);
         console.log('Model size:', size);
 
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale = 2 / maxDim;
-        loadedGeometry.scale(scale, scale, scale);
+        threeGeometry.scale(scale, scale, scale);
         console.log('Applied scale:', scale);
       }
 
-      setGeometry(loadedGeometry);
+      setGeometry(threeGeometry);
       setError(null);
     } catch (err) {
       console.error('Error loading STL:', err);
@@ -104,15 +97,11 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
   }
 
   return (
-    <div className={`w-full h-[400px] bg-gray-50 rounded-lg ${className}`}>
+    <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden">
       <Suspense fallback={<LoadingFallback />}>
         <Canvas
           camera={{ position: [0, 0, 5], fov: 75 }}
-          gl={{ 
-            antialias: true,
-            alpha: true,
-            preserveDrawingBuffer: true
-          }}
+          style={{ background: '#f3f4f6' }}
         >
           <Model geometry={geometry} />
         </Canvas>

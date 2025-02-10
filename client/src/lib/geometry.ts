@@ -54,7 +54,7 @@ function parseAsciiSTL(text: string): { triangles: Float32Array, normals: Float3
   };
 }
 
-function parseSTL(buffer: ArrayBuffer): {
+export function parseSTL(buffer: ArrayBuffer): {
   triangles: Float32Array;
   normals: Float32Array;
 } {
