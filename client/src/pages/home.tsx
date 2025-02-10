@@ -20,17 +20,20 @@ export default function Home() {
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
       try {
+        console.log('Reading file:', file.name, 'size:', file.size);
         // Read file as array buffer first
         const arrayBuffer = await file.arrayBuffer();
+        console.log('Array buffer size:', arrayBuffer.byteLength);
+
         // Convert to base64
         const base64 = btoa(
           new Uint8Array(arrayBuffer)
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
 
-        console.log('File loaded, analyzing geometry...');
+        console.log('Starting geometry analysis...');
         const report = analyzeGeometry(base64, process);
-        console.log('Analysis complete, sending to server...');
+        console.log('Analysis complete');
 
         const response = await apiRequest("POST", "/api/analyze", {
           fileName: file.name,
