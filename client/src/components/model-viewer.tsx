@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { Suspense, useEffect, useState } from "react";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
@@ -22,13 +22,12 @@ function LoadingFallback() {
 function Model({ geometry }: { geometry: THREE.BufferGeometry }) {
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 0, 5]} />
-      <OrbitControls enablePan enableZoom enableRotate />
       <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
+      <pointLight position={[10, 10, 10]} />
       <mesh geometry={geometry}>
-        <meshStandardMaterial color="#666" roughness={0.5} metalness={0.5} />
+        <meshPhongMaterial color="#666" />
       </mesh>
+      <OrbitControls />
     </>
   );
 }
@@ -48,33 +47,29 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
 
       // Convert base64 to binary
       const binaryString = atob(fileContent);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      console.log('Loading STL geometry...', {
-        contentLength: fileContent.length,
-        binaryLength: len
-      });
+      console.log('Loading STL...', bytes.length, 'bytes');
 
-      const geometry = loader.parse(bytes.buffer);
+      const loadedGeometry = loader.parse(bytes.buffer);
+      console.log('STL loaded successfully');
 
-      // Center and normalize the geometry
-      geometry.center();
-      geometry.computeBoundingBox();
+      // Center and normalize
+      loadedGeometry.center();
+      loadedGeometry.computeBoundingBox();
 
-      if (geometry.boundingBox) {
+      if (loadedGeometry.boundingBox) {
         const size = new THREE.Vector3();
-        geometry.boundingBox.getSize(size);
+        loadedGeometry.boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 2 / maxDim; // Scale to fit in a 2x2x2 box
-        geometry.scale(scale, scale, scale);
+        const scale = 2 / maxDim;
+        loadedGeometry.scale(scale, scale, scale);
       }
 
-      console.log('STL geometry loaded successfully');
-      setGeometry(geometry);
+      setGeometry(loadedGeometry);
       setError(null);
     } catch (err) {
       console.error('Error loading STL:', err);
@@ -96,21 +91,13 @@ export function ModelViewer({ fileContent, className = "" }: ModelViewerProps) {
   }
 
   return (
-    <div className={`w-full h-[400px] bg-gray-50 ${className}`}>
+    <div className={`w-full h-[400px] bg-gray-50 rounded-lg ${className}`}>
       <Suspense fallback={<LoadingFallback />}>
         <Canvas
-          shadows
-          dpr={[1, 2]}
-          gl={{
+          camera={{ position: [0, 0, 5] }}
+          gl={{ 
             antialias: true,
-            alpha: true,
-            preserveDrawingBuffer: true,
-            powerPreference: "high-performance"
-          }}
-          camera={{ position: [0, 0, 5], fov: 50 }}
-          onCreated={({ gl }) => {
-            gl.setClearColor('#f8f9fa', 1);
-            gl.physicallyCorrectLights = true;
+            alpha: true
           }}
         >
           <Model geometry={geometry} />
