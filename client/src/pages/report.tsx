@@ -52,13 +52,17 @@ export default function Report() {
   return (
     <div className="container max-w-4xl mx-auto py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">DFM Analysis Report</h1>
+        <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
         <p className="text-muted-foreground">
-          Analysis results for {analysis.fileName}
+          Analysis results for <span className="font-medium">{analysis.fileName}</span>
         </p>
       </div>
 
-      <DFMReport report={analysis.report} />
+      <DFMReport 
+        report={analysis.report}
+        fileName={analysis.fileName}
+        process={analysis.process}
+      />
     </div>
   );
 }

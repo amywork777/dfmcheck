@@ -7,6 +7,8 @@ import { ProcessSelect } from "@/components/process-select";
 import { manufacturingProcesses } from "@shared/schema";
 import { analyzeGeometry } from "@/lib/geometry";
 import { apiRequest } from "@/lib/queryClient";
+import { Card } from "@/components/ui/card";
+import { CheckCircle2 } from "lucide-react";
 
 export default function Home() {
   const { toast } = useToast();
@@ -54,6 +56,10 @@ export default function Home() {
   const handleFileSelected = useCallback((file: File) => {
     if (file.name.endsWith('.stl') || file.name.endsWith('.step')) {
       setSelectedFile(file);
+      toast({
+        title: "File uploaded successfully",
+        description: `Selected file: ${file.name}`,
+      });
       return true;
     }
     toast({
@@ -83,6 +89,15 @@ export default function Home() {
             maxSize={10 * 1024 * 1024} // 10MB
             accept=".stl,.step"
           />
+
+          {selectedFile && (
+            <Card className="p-4 bg-green-50">
+              <div className="flex items-center gap-2 text-green-700">
+                <CheckCircle2 className="h-5 w-5" />
+                <span>File ready: {selectedFile.name}</span>
+              </div>
+            </Card>
+          )}
 
           <ProcessSelect
             processes={manufacturingProcesses}
