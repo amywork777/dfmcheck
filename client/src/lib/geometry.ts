@@ -10,6 +10,7 @@ const MIN_WALL_THICKNESS = {
 const MAX_OVERHANG_ANGLE = 45; // degrees
 const MIN_HOLE_SIZE = 2.0; // mm
 const MIN_DRAFT_ANGLE = 3.0; // degrees
+const MAX_ISSUES_PER_CATEGORY = 10; // Limit number of reported issues
 
 function isAsciiSTL(buffer: ArrayBuffer): boolean {
   const headerView = new Uint8Array(buffer, 0, 5);
@@ -125,7 +126,9 @@ function analyzeWallThickness(triangles: Float32Array, process: string): {
   let pass = true;
 
   try {
-    for (let i = 0; i < triangles.length; i += 9) {
+    // Sample fewer triangles for better performance
+    const stride = Math.max(1, Math.floor(triangles.length / 1000)); // Sample at most 1000 triangles
+    for (let i = 0; i < triangles.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += stride * 9) {
       const v1 = [triangles[i], triangles[i + 1], triangles[i + 2]];
       const v2 = [triangles[i + 3], triangles[i + 4], triangles[i + 5]];
 
@@ -158,7 +161,9 @@ function analyzeOverhangs(normals: Float32Array): {
   let pass = true;
 
   try {
-    for (let i = 0; i < normals.length; i += 3) {
+    // Sample fewer normals for better performance
+    const stride = Math.max(1, Math.floor(normals.length / 1000)); // Sample at most 1000 normals
+    for (let i = 0; i < normals.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += stride * 3) {
       const normal = [normals[i], normals[i + 1], normals[i + 2]];
       const angle = Math.acos(normal[2]) * (180 / Math.PI);
 

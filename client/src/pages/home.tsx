@@ -10,17 +10,21 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
+import { Loader2 } from "lucide-react";
 
 export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File, process: string }) => {
       try {
+        setAnalyzing(true);
         console.log('Reading file:', file.name, 'size:', file.size);
+
         // Read file as array buffer first
         const arrayBuffer = await file.arrayBuffer();
         console.log('Array buffer size:', arrayBuffer.byteLength);
@@ -50,6 +54,8 @@ export default function Home() {
           throw new Error('Please save your STL file in binary format. Most 3D modeling software can export as binary STL.');
         }
         throw error;
+      } finally {
+        setAnalyzing(false);
       }
     },
     onSuccess: (data) => {
@@ -154,7 +160,7 @@ export default function Home() {
           <FileUpload
             onFileSelected={handleFileSelected}
             onFileUploaded={setSelectedFile}
-            maxSize={10 * 1024 * 1024} // 10MB
+            maxSize={50 * 1024 * 1024} // 50MB
             accept=".stl"
           />
 
@@ -177,9 +183,18 @@ export default function Home() {
           <ProcessSelect
             processes={manufacturingProcesses}
             onAnalyze={handleAnalyze}
-            isLoading={analyzeMutation.isPending}
+            isLoading={analyzeMutation.isPending || analyzing}
             disabled={!selectedFile}
           />
+
+          {(analyzeMutation.isPending || analyzing) && (
+            <Card className="p-4">
+              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Analyzing model geometry...</span>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>
