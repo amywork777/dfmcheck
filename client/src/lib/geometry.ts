@@ -59,6 +59,10 @@ export function parseSTL(buffer: ArrayBuffer): {
   normals: Float32Array;
 } {
   try {
+    if (buffer.byteLength === 0) {
+      throw new Error("Empty STL file provided");
+    }
+
     const isBinary = !isAsciiSTL(buffer);
     console.log('STL Format:', isBinary ? 'Binary' : 'ASCII');
 
@@ -79,8 +83,10 @@ export function parseSTL(buffer: ArrayBuffer): {
     const expectedSize = 84 + (triangleCount * 50);
 
     if (triangleCount <= 0 || triangleCount > 5000000 || buffer.byteLength !== expectedSize) {
-      throw new Error("Invalid binary STL file structure");
+      throw new Error(`Invalid binary STL file structure: Expected size ${expectedSize}, got ${buffer.byteLength}`);
     }
+
+    console.log('Processing STL with', triangleCount, 'triangles');
 
     const triangles = new Float32Array(triangleCount * 9);
     const normals = new Float32Array(triangleCount * 3);
@@ -173,6 +179,12 @@ function analyzeOverhangs(normals: Float32Array): {
 
 export function analyzeGeometry(fileContent: string, process: string): DFMReport {
   try {
+    if (!fileContent) {
+      throw new Error("No file content provided for analysis");
+    }
+
+    console.log('Starting geometry analysis for process:', process);
+
     // Convert base64 to binary
     const binaryString = atob(fileContent);
     const bytes = new Uint8Array(binaryString.length);
@@ -180,10 +192,18 @@ export function analyzeGeometry(fileContent: string, process: string): DFMReport
       bytes[i] = binaryString.charCodeAt(i);
     }
 
+    console.log('Binary data size:', bytes.buffer.byteLength, 'bytes');
+
     const { triangles, normals } = parseSTL(bytes.buffer);
+    console.log('Successfully parsed STL geometry');
 
     const wallThickness = analyzeWallThickness(triangles, process);
     const overhangs = analyzeOverhangs(normals);
+
+    console.log('Analysis complete:', {
+      wallThicknessIssues: wallThickness.issues.length,
+      overhangIssues: overhangs.issues.length
+    });
 
     const holeSize = {
       issues: [] as string[],

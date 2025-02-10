@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Upload } from "lucide-react";
 
 interface FileUploadProps {
-  onFileSelected: (file: File) => boolean;
+  onFileSelected: (file: File) => Promise<boolean>;
   onFileUploaded: (file: File) => void;
   maxSize: number;
   accept: string;
@@ -11,8 +11,11 @@ interface FileUploadProps {
 
 export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: FileUploadProps) {
   const handleFile = useCallback(async (file: File) => {
-    if (file && file.size <= maxSize && onFileSelected(file)) {
-      onFileUploaded(file);
+    if (file && file.size <= maxSize) {
+      const success = await onFileSelected(file);
+      if (success) {
+        onFileUploaded(file);
+      }
     }
   }, [maxSize, onFileSelected, onFileUploaded]);
 
@@ -20,14 +23,14 @@ export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: 
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file) {
-      handleFile(file);
+      void handleFile(file);
     }
   }, [handleFile]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFile(file);
+      void handleFile(file);
     }
   }, [handleFile]);
 
