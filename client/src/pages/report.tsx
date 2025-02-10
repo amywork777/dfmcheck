@@ -98,7 +98,10 @@ export default function Report() {
           <Card className="p-6">
             <h3 className="font-medium mb-4">3D Model Preview</h3>
             {analysis.fileContent ? (
-              <ModelViewer fileContent={analysis.fileContent} />
+              <ModelViewer 
+                fileContent={analysis.fileContent} 
+                analysisReport={analysis.report as DFMReportType}
+              />
             ) : (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
