@@ -70,9 +70,9 @@ export function AISummary({ report, process }: AISummaryProps) {
             </div>
           ) : (
             <div className="prose prose-sm max-w-none">
-              <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
+              <div className="text-sm text-foreground space-y-4 whitespace-pre-wrap font-sans">
                 {insights}
-              </pre>
+              </div>
             </div>
           )}
         </div>
