@@ -10,6 +10,10 @@ export async function generateDesignInsights(
   process: string,
   designGuidelines?: string
 ) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.');
+  }
+
   try {
     const customGuidelines = designGuidelines ? `\nCustom Guidelines:\n${designGuidelines}` : '';
 
