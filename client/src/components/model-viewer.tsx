@@ -295,10 +295,39 @@ export function ModelViewer({
         const size = new THREE.Vector3();
         threeGeometry.boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
+        const minDim = Math.min(size.x, size.y, size.z);
 
-        // Use standard scaling
-        const scale = 2 / maxDim;
+        // Enhanced scaling logic for better visibility of small models
+        let scale = 2 / maxDim; // Default scale
+
+        // If the model is very small (max dimension < 1), ensure it's scaled up significantly
+        if (maxDim < 1) {
+          // More aggressive scaling for tiny models
+          scale = 2 / Math.min(maxDim, 0.01); // Scale up tiny models even more
+        }
+
+        // If model is extremely small, enforce minimum scale
+        if (scale < 0.01) {
+          scale = 0.01;
+        }
+
+        // Cap maximum scale to prevent overflow
+        scale = Math.min(scale, 200); // Increased max scale for better visibility
+
+        // Apply the calculated scale
         threeGeometry.scale(scale, scale, scale);
+
+        console.log('Model dimensions:', {
+          original: { x: size.x, y: size.y, z: size.z },
+          maxDim,
+          minDim,
+          appliedScale: scale,
+          finalSize: {
+            x: size.x * scale,
+            y: size.y * scale,
+            z: size.z * scale
+          }
+        });
       }
 
       setGeometry(threeGeometry);
