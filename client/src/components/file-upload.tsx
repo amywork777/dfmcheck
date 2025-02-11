@@ -7,18 +7,9 @@ interface FileUploadProps {
   onFileUploaded: (file: File) => void;
   maxSize: number;
   accept: string;
-  title?: string;
-  description?: string;
 }
 
-export function FileUpload({ 
-  onFileSelected, 
-  onFileUploaded, 
-  maxSize, 
-  accept,
-  title,
-  description
-}: FileUploadProps) {
+export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: FileUploadProps) {
   const handleFile = useCallback(async (file: File) => {
     if (file && file.size <= maxSize) {
       const success = await onFileSelected(file);
@@ -43,10 +34,6 @@ export function FileUpload({
     }
   }, [handleFile]);
 
-  const defaultTitle = "Drop your 3D model here";
-  const defaultDescription = "Upload a binary STL or STEP file";
-  const defaultSubtext = "Most 3D modeling software can export in these formats";
-
   return (
     <Card className="p-8">
       <div
@@ -56,12 +43,12 @@ export function FileUpload({
       >
         <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
         <div className="space-y-2">
-          <h3 className="font-medium">{title || defaultTitle}</h3>
+          <h3 className="font-medium">Drop your 3D model here</h3>
           <p className="text-sm text-muted-foreground">
-            {description || defaultDescription}
+            Upload a binary STL file for best compatibility
           </p>
           <p className="text-xs text-muted-foreground">
-            {defaultSubtext}
+            Most 3D modeling software can export as binary STL
           </p>
         </div>
         <input

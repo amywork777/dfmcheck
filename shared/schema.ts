@@ -21,7 +21,7 @@ export const insertAnalysisSchema = createInsertSchema(analyses).pick({
   fileName: true,
   fileContent: true,
   process: true,
-  report: true,
+  report: true
 });
 
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;

@@ -1,11 +1,10 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
 import { Suspense, useEffect, useState, useCallback } from "react";
-import * as THREE from 'three';
+import * as THREE from "three";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { parseSTL } from "@/lib/geometry";
-import { Progress } from "@/components/ui/progress"; 
 import type { DFMReport } from "@shared/schema";
 
 interface ModelViewerProps {
@@ -70,40 +69,50 @@ function IssueHighlight({
   highlighted,
   onClick,
 }: IssueHighlightProps) {
-  const handlePointerOver = useCallback((e: any) => {
-    if (e.object) {
-      e.stopPropagation();
-      document.body.style.cursor = "pointer";
-    }
+  const handlePointerOver = useCallback((e: THREE.Event) => {
+    e.stopPropagation();
+    document.body.style.cursor = "pointer";
   }, []);
 
   const handlePointerOut = useCallback(() => {
     document.body.style.cursor = "default";
   }, []);
 
-  const handleClick = useCallback((e: any) => {
-    if (e.object) {
-      e.stopPropagation();
-      onClick?.();
-    }
+  const handleClick = useCallback((e: THREE.Event) => {
+    e.stopPropagation();
+    onClick?.();
   }, [onClick]);
 
   return (
     <>
       {type === "line" ? (
-        <mesh
-          position={position}
+        <line
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
-          <boxGeometry args={[size * 2, 0.02, 0.02]} />
-          <meshBasicMaterial
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={2}
+              array={new Float32Array([
+                position.x - size,
+                position.y,
+                position.z,
+                position.x + size,
+                position.y,
+                position.z,
+              ])}
+              itemSize={3}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial
             color={color}
-            transparent
+            linewidth={highlighted ? 8 : 5}
             opacity={highlighted ? 1 : 0.8}
+            transparent
           />
-        </mesh>
+        </line>
       ) : (
         <mesh
           position={position}
@@ -111,7 +120,7 @@ function IssueHighlight({
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
-          <sphereGeometry args={[size * (highlighted ? 1.5 : 1), 8, 8]} />
+          <sphereGeometry args={[size * (highlighted ? 2 : 1.5), 16, 16]} />
           <meshBasicMaterial
             color={color}
             transparent
@@ -143,7 +152,6 @@ interface ModelProps {
 function Model({ geometry, analysisReport }: ModelProps) {
   const [issuePoints, setIssuePoints] = useState<(IssueHighlightProps & { id: number })[]>([]);
   const [highlightedIssueId, setHighlightedIssueId] = useState<number | null>(null);
-  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (!analysisReport || !geometry) return;
@@ -152,71 +160,63 @@ function Model({ geometry, analysisReport }: ModelProps) {
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     let idCounter = 0;
 
-    // Calculate sampling rate based on model complexity
-    const totalTriangles = positionAttr.count / 3;
-    const samplingRate = Math.max(5, Math.ceil(totalTriangles / 1000));
-
-    let processedPoints = 0;
-    const maxPoints = 50; // Limit visualization markers for performance
-
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count && processedPoints < maxPoints; i += 3 * samplingRate) {
+      for (let i = 0; i < positionAttr.count; i += 3) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
         const thickness = v2.distanceTo(v1);
-        if (thickness < 1.2) {
+        if (thickness < 1.2 && thickness > 0.01) { // Filter out noise
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
             position: center,
             color: "#ff2222",
             type: "line",
-            size: thickness,
+            size: thickness * 2,
             measurement: `${thickness.toFixed(2)}mm wall`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
-          processedPoints++;
         }
-        setProgress((i / positionAttr.count) * 100);
       }
     }
 
-    // Process overhang issues with the remaining point budget
+    // Process overhang issues with improved detection
     if (analysisReport.overhangs.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count && processedPoints < maxPoints; i += 3 * samplingRate) {
+      for (let i = 0; i < positionAttr.count; i += 3) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
+        // Calculate face normal
         const edge1 = new THREE.Vector3().subVectors(v2, v1);
         const edge2 = new THREE.Vector3().subVectors(v3, v1);
         const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+        // Calculate angle with up vector
         const upVector = new THREE.Vector3(0, 1, 0);
         const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-        const faceArea = edge1.cross(edge2).length() / 2;
-        if (angle > 45 && faceArea > 0.01) {
+        // Check for overhangs
+        if (angle > 45) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
             position: center,
             color: "#ff8800",
             type: "point",
-            size: 0.05,
+            size: 0.2, // Increased size for better visibility
             measurement: `${angle.toFixed(1)}° overhang`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
-          processedPoints++;
         }
-        setProgress((i / positionAttr.count) * 100);
       }
     }
 
+    console.log("Found issues:", points.length);
     setIssuePoints(points);
-    setProgress(100);
   }, [geometry, analysisReport]);
 
   return (
@@ -224,13 +224,11 @@ function Model({ geometry, analysisReport }: ModelProps) {
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
       <mesh geometry={geometry}>
-        <meshStandardMaterial
+        <meshPhongMaterial
           color="#777"
           transparent
           opacity={0.8}
           side={THREE.DoubleSide}
-          wireframe={false}
-          flatShading={true}
         />
       </mesh>
       {issuePoints.map((point) => (
@@ -244,18 +242,31 @@ function Model({ geometry, analysisReport }: ModelProps) {
         enableDamping={true}
         dampingFactor={0.05}
         rotateSpeed={0.5}
-        maxDistance={10}
-        minDistance={0.5}
       />
-      {progress < 100 && (
-        <Html position={[0, -1.5, 0]}>
-          <div className="w-64">
-            <Progress value={progress} className="h-2" />
-          </div>
-        </Html>
-      )}
     </>
   );
+}
+
+function findHoles(
+  geometry: THREE.BufferGeometry
+): Array<{ position: THREE.Vector3; radius: number }> {
+  const positions: Array<{ position: THREE.Vector3; radius: number }> = [];
+  const positionAttr = geometry.getAttribute("position") as THREE.BufferAttribute;
+
+  for (let i = 0; i < positionAttr.count; i += 3) {
+    const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
+    const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
+    const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
+
+    const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
+    const radius = v1.distanceTo(center);
+
+    if (radius < 1.0) {
+      positions.push({ position: center, radius });
+    }
+  }
+
+  return positions;
 }
 
 export function ModelViewer({
@@ -273,21 +284,17 @@ export function ModelViewer({
     }
 
     try {
-      // Convert base64 to array buffer
       const binaryString = atob(fileContent);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // Parse STL and create geometry
       const { triangles, normals } = parseSTL(bytes.buffer);
-
       const threeGeometry = new THREE.BufferGeometry();
-      threeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(triangles, 3));
-      threeGeometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+      threeGeometry.setAttribute("position", new THREE.BufferAttribute(triangles, 3));
+      threeGeometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 
-      // Center and scale the geometry
       threeGeometry.center();
       threeGeometry.computeBoundingBox();
 
@@ -295,45 +302,14 @@ export function ModelViewer({
         const size = new THREE.Vector3();
         threeGeometry.boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
-        const minDim = Math.min(size.x, size.y, size.z);
-
-        // Enhanced scaling logic for better visibility of small models
-        let scale = 2 / maxDim; // Default scale
-
-        // If the model is very small (max dimension < 1), ensure it's scaled up significantly
-        if (maxDim < 1) {
-          // More aggressive scaling for tiny models
-          scale = 2 / Math.min(maxDim, 0.01); // Scale up tiny models even more
-        }
-
-        // If model is extremely small, enforce minimum scale
-        if (scale < 0.01) {
-          scale = 0.01;
-        }
-
-        // Cap maximum scale to prevent overflow
-        scale = Math.min(scale, 200); // Increased max scale for better visibility
-
-        // Apply the calculated scale
+        const scale = 2 / maxDim;
         threeGeometry.scale(scale, scale, scale);
-
-        console.log('Model dimensions:', {
-          original: { x: size.x, y: size.y, z: size.z },
-          maxDim,
-          minDim,
-          appliedScale: scale,
-          finalSize: {
-            x: size.x * scale,
-            y: size.y * scale,
-            z: size.z * scale
-          }
-        });
       }
 
       setGeometry(threeGeometry);
       setError(null);
     } catch (err) {
-      console.error("Error loading model:", err);
+      console.error("Error loading STL:", err);
       setError(err instanceof Error ? err.message : "Failed to load 3D model");
     }
   }, [fileContent]);
@@ -352,17 +328,36 @@ export function ModelViewer({
   }
 
   return (
-    <div className={`w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden ${className}`}>
-      <Suspense fallback={<LoadingFallback />}>
-        <Canvas
-          camera={{ position: [0, 0, 5], fov: 75 }}
-          style={{ background: "#f3f4f6" }}
-          dpr={[1, 2]} // Limit DPR for better performance
-          performance={{ min: 0.5 }} // Allow frame rate to drop for better performance
-        >
-          <Model geometry={geometry} analysisReport={analysisReport} />
-        </Canvas>
-      </Suspense>
+    <div className="space-y-4">
+      <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden">
+        <Suspense fallback={<LoadingFallback />}>
+          <Canvas
+            camera={{ position: [0, 0, 5], fov: 75 }}
+            style={{ background: "#f3f4f6" }}
+          >
+            <Model geometry={geometry} analysisReport={analysisReport} />
+          </Canvas>
+        </Suspense>
+      </div>
+
+      {analysisReport && (
+        <div className="flex gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#ff2222]" />
+            <span>Thin Walls (Red Lines)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#ff8800]" />
+            <span>Overhangs (Orange Dots)</span>
+          </div>
+          {analysisReport.holeSize.issues.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#4444ff]" />
+              <span>Small Holes (Blue Dots)</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

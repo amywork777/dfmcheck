@@ -23,7 +23,7 @@ export default function Home() {
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File; process: typeof manufacturingProcesses[number] }) => {
       const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 45000);
+      const timeoutId = setTimeout(() => abortController.abort(), 45000); // 45s timeout
 
       try {
         setAnalyzing(true);
@@ -36,8 +36,6 @@ export default function Home() {
           new Uint8Array(arrayBuffer)
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
-
-        setFileContent(base64);
 
         console.log('Starting geometry analysis...');
         const report = analyzeGeometry(base64, process);
@@ -56,6 +54,9 @@ export default function Home() {
         console.error('Analysis error:', error);
         if (error.name === 'AbortError' || error.message?.includes('timeout')) {
           throw new Error('Analysis timed out. The model might be too complex, try simplifying it first.');
+        }
+        if (error.message?.includes('save your STL file in binary format')) {
+          throw new Error('Please save your STL file in binary format. Most 3D modeling software can export as binary STL.');
         }
         throw error;
       } finally {
@@ -82,10 +83,7 @@ export default function Home() {
   }, [analyzeMutation, selectedFile]);
 
   const handleFileSelected = useCallback(async (file: File) => {
-    const validExtensions = ['.stl', '.step', '.stp'];
-    const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
-
-    if (validExtensions.includes(extension)) {
+    if (file.name.toLowerCase().endsWith('.stl')) {
       try {
         if (file.size > 50 * 1024 * 1024) {
           toast({
@@ -96,12 +94,12 @@ export default function Home() {
           return false;
         }
 
+        setSelectedFile(file);
         const arrayBuffer = await file.arrayBuffer();
-        console.log('File loaded:', file.name, 'size:', arrayBuffer.byteLength);
 
         if (arrayBuffer.byteLength < 84) {
           toast({
-            title: "Invalid file",
+            title: "Invalid STL file",
             description: "The file appears to be corrupted or invalid",
             variant: "destructive"
           });
@@ -113,7 +111,6 @@ export default function Home() {
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
 
-        setSelectedFile(file);
         setFileContent(base64);
         setAnalysisReport(null);
 
@@ -135,7 +132,7 @@ export default function Home() {
 
     toast({
       title: "Invalid file type",
-      description: "Please upload an STL or STEP file",
+      description: "Please upload an STL file",
       variant: "destructive"
     });
     return false;
@@ -158,7 +155,7 @@ export default function Home() {
             onFileSelected={handleFileSelected}
             onFileUploaded={setSelectedFile}
             maxSize={50 * 1024 * 1024}
-            accept=".stl,.step,.stp"
+            accept=".stl"
           />
 
           {fileContent && (

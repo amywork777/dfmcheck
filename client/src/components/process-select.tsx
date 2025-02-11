@@ -3,17 +3,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { manufacturingProcesses } from "@shared/schema";
 
 interface ProcessSelectProps {
-  processes: typeof manufacturingProcesses;
-  onAnalyze: (process: typeof manufacturingProcesses[number]) => void;
+  processes: readonly string[];
+  onAnalyze: (process: string) => void;
   isLoading: boolean;
   disabled: boolean;
 }
 
 export function ProcessSelect({ processes, onAnalyze, isLoading, disabled }: ProcessSelectProps) {
-  const [selectedProcess, setSelectedProcess] = useState<typeof manufacturingProcesses[number] | "">("");
+  const [selectedProcess, setSelectedProcess] = useState<string>("");
 
   return (
     <Card className="p-6">
@@ -36,7 +35,7 @@ export function ProcessSelect({ processes, onAnalyze, isLoading, disabled }: Pro
         <Button 
           className="w-full"
           disabled={!selectedProcess || disabled || isLoading}
-          onClick={() => selectedProcess && onAnalyze(selectedProcess)}
+          onClick={() => onAnalyze(selectedProcess)}
         >
           {isLoading ? (
             <>
