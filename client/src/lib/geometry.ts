@@ -180,10 +180,13 @@ export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> 
       throw new Error('No valid geometry found in STEP file');
     }
 
-    // Convert JSCAD geometry to STL format
+    // Convert JSCAD geometry to STL format with specific options
     const stlData = JSCADio.stlSerializer.serialize({
       geometry: parsed,
-      binary: true
+      binary: true,
+      statusCallback: (status: any) => console.log('STL conversion:', status),
+      decimals: 5,
+      facetCount: 100000
     });
 
     if (!stlData || !(stlData instanceof Uint8Array)) {
@@ -392,7 +395,7 @@ export async function analyzeGeometry(fileContent: string, process: ProcessType)
       }
     } catch (error) {
       if (isStep) {
-        throw new Error('Failed to parse STEP file. The file might be corrupted or in an unsupported format.');
+        throw new Error('Failed to parse STEP file. Please ensure the file is a valid STEP format and try again.');
       } else {
         if (error instanceof Error && error.message.includes('Triangle count')) {
           throw new Error('The STL file appears to be corrupted. Please try re-exporting it from your CAD software.');
