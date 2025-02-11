@@ -45,6 +45,38 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/parse-pdf", async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || !Array.isArray(content)) {
+        return res.status(400).json({ error: "Invalid PDF content" });
+      }
+
+      const buffer = Buffer.from(content);
+
+      try {
+        // Dynamically import pdf-parse
+        const pdfParse = await import('pdf-parse');
+        const data = await pdfParse.default(buffer);
+
+        // Extract text and format it as guidelines
+        const text = data.text
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter((line: string) => line.length > 0)
+          .join('\n');
+
+        res.json({ text });
+      } catch (pdfError) {
+        console.error('PDF parsing error:', pdfError);
+        res.status(400).json({ error: "Invalid PDF format or corrupted file" });
+      }
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      res.status(500).json({ error: "Failed to parse PDF file" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
