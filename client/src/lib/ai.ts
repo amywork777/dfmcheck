@@ -11,16 +11,16 @@ export async function generateDFMSummary(report: any, process: string) {
     return null;
   }
 
-  const prompt = `You are a Design for Manufacturing (DFM) expert. Analyze this manufacturing report and provide 3-4 actionable insights focusing on key issues and improvements. Format your response as complete sentences starting with **. Ensure each insight is a complete thought.
+  const prompt = `As a DFM expert, provide 3-4 very brief but critical manufacturing insights about this report. Each insight should be 1-2 sentences max, focusing on immediate actions needed. Format each insight starting with **.
 
 Manufacturing Process: ${process}
 Report Details:
 ${JSON.stringify(report, null, 2)}
 
-Focus on:
-1. Major issues that need immediate attention
-2. Quick wins for improvement
-3. Critical manufacturing constraints`;
+Focus areas:
+1. Critical manufacturing issues
+2. Quick improvements
+3. Key constraints`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -28,7 +28,7 @@ Focus on:
       messages: [
         {
           role: "system",
-          content: "You are a DFM expert providing concise, actionable manufacturing insights."
+          content: "You are a DFM expert providing extremely concise, actionable manufacturing insights. Keep each insight to 1-2 sentences."
         },
         {
           role: "user",
@@ -36,7 +36,7 @@ Focus on:
         }
       ],
       temperature: 0.7,
-      max_tokens: 200,
+      max_tokens: 150,
     });
 
     return response.choices[0].message.content;
