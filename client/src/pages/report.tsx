@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import { DFMReport } from "@/components/dfm-report";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { Analysis, DFMReport as DFMReportType } from "@shared/schema";
 import { ModelViewer } from "@/components/model-viewer";
 import { Card } from "@/components/ui/card";
@@ -15,18 +16,7 @@ export default function Report() {
     queryKey: [`/api/analysis/${id}`],
     enabled: !!id,
     retry: 1,
-    staleTime: 0,
-    onError: (error: Error) => {
-      console.error('Analysis query error:', error);
-    },
-    onSuccess: (data) => {
-      console.log('Analysis data received:', {
-        id: data.id,
-        fileName: data.fileName,
-        process: data.process,
-        reportKeys: Object.keys(data.report || {})
-      });
-    }
+    staleTime: 0
   });
 
   if (isLoading) {
@@ -87,11 +77,18 @@ export default function Report() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
-          <p className="text-muted-foreground">
-            Analysis results for <span className="font-medium">{analysis.fileName}</span>
-          </p>
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/">
+            <Button variant="outline" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
+            <p className="text-muted-foreground">
+              Analysis results for <span className="font-medium">{analysis.fileName}</span>
+            </p>
+          </div>
         </div>
 
         <div className="space-y-8">
@@ -100,7 +97,7 @@ export default function Report() {
             {analysis.fileContent ? (
               <ModelViewer 
                 fileContent={analysis.fileContent} 
-                analysisReport={analysis.report as DFMReportType}
+                analysisReport={report}
               />
             ) : (
               <Alert>

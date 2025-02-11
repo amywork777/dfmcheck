@@ -69,7 +69,7 @@ function IssueHighlight({
   highlighted,
   onClick,
 }: IssueHighlightProps) {
-  const handlePointerOver = useCallback((e: THREE.Event) => {
+  const handlePointerOver = useCallback((e: THREE.Event & { stopPropagation: () => void }) => {
     e.stopPropagation();
     document.body.style.cursor = "pointer";
   }, []);
@@ -78,7 +78,7 @@ function IssueHighlight({
     document.body.style.cursor = "default";
   }, []);
 
-  const handleClick = useCallback((e: THREE.Event) => {
+  const handleClick = useCallback((e: THREE.Event & { stopPropagation: () => void }) => {
     e.stopPropagation();
     onClick?.();
   }, [onClick]);
