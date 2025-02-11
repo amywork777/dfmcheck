@@ -71,7 +71,7 @@ function IssueHighlight({
   onClick,
 }: IssueHighlightProps) {
   const handlePointerOver = useCallback((e: THREE.Event) => {
-    e.stopPropagation();
+    e.preventDefault();
     document.body.style.cursor = "pointer";
   }, []);
 
@@ -80,7 +80,7 @@ function IssueHighlight({
   }, []);
 
   const handleClick = useCallback((e: THREE.Event) => {
-    e.stopPropagation();
+    e.preventDefault();
     onClick?.();
   }, [onClick]);
 
@@ -110,7 +110,7 @@ function IssueHighlight({
           <lineBasicMaterial
             color={color}
             linewidth={highlighted ? 8 : 5}
-            opacity={highlighted ? 1 : 0.8}
+            opacity={highlighted ? 0.8 : 0.6}
             transparent
           />
         </line>
@@ -121,11 +121,11 @@ function IssueHighlight({
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
-          <sphereGeometry args={[size * (highlighted ? 2 : 1.5), 16, 16]} />
+          <sphereGeometry args={[size * (highlighted ? 1.2 : 1), 16, 16]} />
           <meshBasicMaterial
             color={color}
             transparent
-            opacity={highlighted ? 1 : 0.95}
+            opacity={highlighted ? 0.8 : 0.6}
           />
         </mesh>
       )}
@@ -185,7 +185,7 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
       }
     }
 
-    // Process overhang issues with improved detection
+    // Process overhang issues
     if (analysisReport.overhangs.issues.length > 0) {
       for (let i = 0; i < positionAttr.count; i += 3) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
@@ -209,7 +209,7 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
             position: center,
             color: "#ff8800",
             type: "point",
-            size: 0.2, // Increased size for better visibility
+            size: 0.15, // Slightly reduced size for less visual clutter
             measurement: `${angle.toFixed(1)}° overhang`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
@@ -217,7 +217,6 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
       }
     }
 
-    console.log("Found issues:", points.length);
     setIssuePoints(points);
   }, [geometry, analysisReport]);
 
