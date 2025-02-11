@@ -5,9 +5,9 @@ export function SiteHeader() {
     <div className="mb-6">
       <Link href="/">
         <div className="flex flex-col items-center">
-          <img src="/image2vector.svg" alt="DFM Logo" className="h-14 mb-2" />
+          <img src="/dfm-logo.png" alt="DFM Logo" className="h-12 mb-2" />
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent leading-tight">
-            DFM Agent
+            AI DFM Agent
           </h1>
         </div>
       </Link>

@@ -92,8 +92,6 @@ export default function Report() {
           </div>
 
           <div className="space-y-8">
-            <AISummary report={report} process={analysis.process} />
-
             <Card className="p-6">
               <h3 className="font-medium mb-4">3D Model Preview</h3>
               {analysis.fileContent ? (
@@ -108,6 +106,8 @@ export default function Report() {
                 </Alert>
               )}
             </Card>
+
+            <AISummary report={report} process={analysis.process} />
 
             <DFMReport
               report={report}

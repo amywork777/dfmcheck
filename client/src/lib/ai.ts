@@ -11,7 +11,7 @@ export async function generateDFMSummary(report: any, process: string) {
     return null;
   }
 
-  const prompt = `You are a Design for Manufacturing (DFM) expert. Analyze this manufacturing report and provide a brief, actionable summary focusing on key issues and improvements. Keep it concise (max 3-4 sentences).
+  const prompt = `You are a Design for Manufacturing (DFM) expert. Analyze this manufacturing report and provide 3-4 actionable insights as bullet points. Format your response as a bullet-point list starting each point with a • character.
 
 Manufacturing Process: ${process}
 Report Details:
