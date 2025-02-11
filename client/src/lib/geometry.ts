@@ -11,10 +11,11 @@ const MIN_WALL_THICKNESS = {
 const MAX_OVERHANG_ANGLE = 45; // degrees
 const MIN_HOLE_SIZE = 2.0; // mm
 const MIN_DRAFT_ANGLE = 3.0; // degrees
-const MAX_ISSUES_PER_CATEGORY = 5; // Reduced from 10 to limit visual clutter
-const ANALYSIS_CHUNK_SIZE = 2000; // Increased from 1000 for better performance
-const MAX_PROCESSING_TIME = 15000; // Reduced from 30000 to fail faster
-const SAMPLING_RATE = 3; // Only analyze every Nth triangle
+const MAX_ISSUES_PER_CATEGORY = 10; // Limit number of reported issues
+const ANALYSIS_CHUNK_SIZE = 1000; // Number of triangles to process at once
+const MAX_PROCESSING_TIME = 30000; // Maximum processing time in ms
+const MAX_TRIANGLES = 5000; // Maximum number of triangles to analyze
+const SAMPLING_RATE = 5; // Only analyze every Nth triangle
 
 type ProcessType = keyof typeof MIN_WALL_THICKNESS;
 
@@ -145,7 +146,7 @@ function processGeometryChunk(
   let pass = true;
 
   const end = Math.min(start + chunkSize * 9, triangles.length);
-  for (let i = start; i < end && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9 * SAMPLING_RATE) {
+  for (let i = start; i < end && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9) {
     // Get all three vertices of the triangle
     const v1 = [triangles[i], triangles[i + 1], triangles[i + 2]];
     const v2 = [triangles[i + 3], triangles[i + 4], triangles[i + 5]];
@@ -157,29 +158,25 @@ function processGeometryChunk(
       Math.pow(v2[1] - v1[1], 2) +
       Math.pow(v2[2] - v1[2], 2)
     );
+    const thickness2 = Math.sqrt(
+      Math.pow(v3[0] - v2[0], 2) +
+      Math.pow(v3[1] - v2[1], 2) +
+      Math.pow(v3[2] - v2[2], 2)
+    );
+    const thickness3 = Math.sqrt(
+      Math.pow(v1[0] - v3[0], 2) +
+      Math.pow(v1[1] - v3[1], 2) +
+      Math.pow(v1[2] - v3[2], 2)
+    );
 
-    // Only check other edges if first one indicates potential issue
-    if (thickness1 < minThickness && thickness1 > 0.01) {
-      const thickness2 = Math.sqrt(
-        Math.pow(v3[0] - v2[0], 2) +
-        Math.pow(v3[1] - v2[1], 2) +
-        Math.pow(v3[2] - v2[2], 2)
+    const avgThickness = (thickness1 + thickness2 + thickness3) / 3;
+
+    if (avgThickness < minThickness && avgThickness > 0.01) { // Filter out extremely small values that might be noise
+      const recommendation = getManufacturingRecommendation(process, avgThickness, minThickness);
+      issues.push(
+        `${avgThickness.toFixed(2)}mm wall - ${recommendation}`
       );
-      const thickness3 = Math.sqrt(
-        Math.pow(v1[0] - v3[0], 2) +
-        Math.pow(v1[1] - v3[1], 2) +
-        Math.pow(v1[2] - v3[2], 2)
-      );
-
-      const avgThickness = (thickness1 + thickness2 + thickness3) / 3;
-
-      if (avgThickness < minThickness) {
-        const recommendation = getManufacturingRecommendation(process, avgThickness, minThickness);
-        issues.push(
-          `${avgThickness.toFixed(2)}mm wall - ${recommendation}`
-        );
-        pass = false;
-      }
+      pass = false;
     }
   }
 
@@ -240,24 +237,38 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   let pass = true;
 
   try {
-    // Process triangles in groups of 3 vertices (1 face), with sampling
-    for (let i = 0; i < triangles.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9 * SAMPLING_RATE) {
+    // Calculate sampling rate based on model complexity
+    const totalTriangles = triangles.length / 9;
+    const effectiveSamplingRate = Math.max(
+      SAMPLING_RATE,
+      Math.ceil(totalTriangles / MAX_TRIANGLES)
+    );
+
+    console.log(`Processing ${Math.floor(totalTriangles / effectiveSamplingRate)} triangles...`);
+
+    // Process triangles in groups of 3 vertices (1 face)
+    for (let i = 0; i < triangles.length && issues.length < MAX_ISSUES_PER_CATEGORY; i += 9 * effectiveSamplingRate) {
       if (Date.now() - startTime > MAX_PROCESSING_TIME) {
         throw new Error("Overhang analysis timeout: Model too complex");
       }
 
+      // Get vertices for the current triangle
       const v1 = new THREE.Vector3(triangles[i], triangles[i + 1], triangles[i + 2]);
       const v2 = new THREE.Vector3(triangles[i + 3], triangles[i + 4], triangles[i + 5]);
       const v3 = new THREE.Vector3(triangles[i + 6], triangles[i + 7], triangles[i + 8]);
 
+      // Calculate face normal using cross product
       const edge1 = new THREE.Vector3().subVectors(v2, v1);
       const edge2 = new THREE.Vector3().subVectors(v3, v1);
       const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
 
+      // Calculate angle with UP vector (y-axis)
       const upVector = new THREE.Vector3(0, 1, 0);
       const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-      if (angle > MAX_OVERHANG_ANGLE) {
+      // Check if angle exceeds overhang threshold and the face is large enough to matter
+      const faceArea = edge1.cross(edge2).length() / 2;
+      if (angle > MAX_OVERHANG_ANGLE && faceArea > 0.01) {
         const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
         issues.push(
           `${angle.toFixed(1)}° overhang - support structures required for angles over ${MAX_OVERHANG_ANGLE}°`
@@ -271,6 +282,7 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   }
 
   console.log('Overhang analysis completed in', Date.now() - startTime, 'ms');
+  console.log('Found', issues.length, 'overhang issues');
   return { issues, pass };
 }
 

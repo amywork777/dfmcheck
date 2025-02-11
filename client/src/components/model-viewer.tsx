@@ -3,8 +3,7 @@ import { OrbitControls, Html } from "@react-three/drei";
 import { Suspense, useEffect, useState, useCallback } from "react";
 import * as THREE from "three";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Slider } from "@/components/ui/slider";
-import { AlertCircle, Loader2, ZoomIn } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { parseSTL } from "@/lib/geometry";
 import type { DFMReport } from "@shared/schema";
 
@@ -71,7 +70,7 @@ function IssueHighlight({
   onClick,
 }: IssueHighlightProps) {
   const handlePointerOver = useCallback((e: THREE.Event) => {
-    e.preventDefault();
+    e.stopPropagation();
     document.body.style.cursor = "pointer";
   }, []);
 
@@ -80,7 +79,7 @@ function IssueHighlight({
   }, []);
 
   const handleClick = useCallback((e: THREE.Event) => {
-    e.preventDefault();
+    e.stopPropagation();
     onClick?.();
   }, [onClick]);
 
@@ -110,7 +109,7 @@ function IssueHighlight({
           <lineBasicMaterial
             color={color}
             linewidth={highlighted ? 8 : 5}
-            opacity={highlighted ? 0.8 : 0.6}
+            opacity={highlighted ? 1 : 0.8}
             transparent
           />
         </line>
@@ -121,11 +120,11 @@ function IssueHighlight({
           onPointerOut={handlePointerOut}
           onClick={handleClick}
         >
-          <sphereGeometry args={[size * (highlighted ? 1.2 : 1), 16, 16]} />
+          <sphereGeometry args={[size * (highlighted ? 2 : 1.5), 16, 16]} />
           <meshBasicMaterial
             color={color}
             transparent
-            opacity={highlighted ? 0.8 : 0.6}
+            opacity={highlighted ? 1 : 0.95}
           />
         </mesh>
       )}
@@ -148,10 +147,9 @@ function IssueHighlight({
 interface ModelProps {
   geometry: THREE.BufferGeometry;
   analysisReport?: DFMReport | null;
-  scale: number;
 }
 
-function Model({ geometry, analysisReport, scale }: ModelProps) {
+function Model({ geometry, analysisReport }: ModelProps) {
   const [issuePoints, setIssuePoints] = useState<(IssueHighlightProps & { id: number })[]>([]);
   const [highlightedIssueId, setHighlightedIssueId] = useState<number | null>(null);
 
@@ -162,15 +160,21 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
     const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
     let idCounter = 0;
 
+    // Calculate sampling rate based on model complexity
+    const totalTriangles = positionAttr.count / 3;
+    const samplingRate = Math.max(5, Math.ceil(totalTriangles / 5000));
+
+    console.log(`Processing visualization with sampling rate: ${samplingRate}`);
+
     // Process wall thickness issues
     if (analysisReport.wallThickness.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3) {
+      for (let i = 0; i < positionAttr.count && points.length < 50; i += 3 * samplingRate) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
         const thickness = v2.distanceTo(v1);
-        if (thickness < 1.2 && thickness > 0.01) { // Filter out noise
+        if (thickness < 1.2 && thickness > 0.01) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
@@ -185,31 +189,29 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
       }
     }
 
-    // Process overhang issues
+    // Process overhang issues with improved detection
     if (analysisReport.overhangs.issues.length > 0) {
-      for (let i = 0; i < positionAttr.count; i += 3) {
+      for (let i = 0; i < positionAttr.count && points.length < 100; i += 3 * samplingRate) {
         const v1 = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
         const v2 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 1);
         const v3 = new THREE.Vector3().fromBufferAttribute(positionAttr, i + 2);
 
-        // Calculate face normal
         const edge1 = new THREE.Vector3().subVectors(v2, v1);
         const edge2 = new THREE.Vector3().subVectors(v3, v1);
         const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
-
-        // Calculate angle with up vector
         const upVector = new THREE.Vector3(0, 1, 0);
         const angle = Math.acos(Math.abs(normal.dot(upVector))) * (180 / Math.PI);
 
-        // Check for overhangs
-        if (angle > 45) {
+        // Only add markers for significant overhangs on larger faces
+        const faceArea = edge1.cross(edge2).length() / 2;
+        if (angle > 45 && faceArea > 0.01) {
           const center = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
           points.push({
             id: idCounter++,
             position: center,
             color: "#ff8800",
             type: "point",
-            size: 0.15, // Slightly reduced size for less visual clutter
+            size: 0.2,
             measurement: `${angle.toFixed(1)}° overhang`,
             onClick: () => setHighlightedIssueId(idCounter - 1),
           });
@@ -217,6 +219,7 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
       }
     }
 
+    console.log("Visualization markers:", points.length);
     setIssuePoints(points);
   }, [geometry, analysisReport]);
 
@@ -224,7 +227,7 @@ function Model({ geometry, analysisReport, scale }: ModelProps) {
     <>
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
-      <mesh geometry={geometry} scale={[scale, scale, scale]}>
+      <mesh geometry={geometry}>
         <meshPhongMaterial
           color="#777"
           transparent
@@ -277,7 +280,6 @@ export function ModelViewer({
 }: ModelViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scale, setScale] = useState(5); // Changed default scale to 5
 
   useEffect(() => {
     if (!fileContent) {
@@ -298,8 +300,15 @@ export function ModelViewer({
       threeGeometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 
       threeGeometry.center();
-      threeGeometry.computeBoundingSphere();
       threeGeometry.computeBoundingBox();
+
+      if (threeGeometry.boundingBox) {
+        const size = new THREE.Vector3();
+        threeGeometry.boundingBox.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 2 / maxDim;
+        threeGeometry.scale(scale, scale, scale);
+      }
 
       setGeometry(threeGeometry);
       setError(null);
@@ -308,10 +317,6 @@ export function ModelViewer({
       setError(err instanceof Error ? err.message : "Failed to load 3D model");
     }
   }, [fileContent]);
-
-  const handleScaleChange = useCallback((value: number[]) => {
-    setScale(value[0]);
-  }, []);
 
   if (error) {
     return (
@@ -331,31 +336,12 @@ export function ModelViewer({
       <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden">
         <Suspense fallback={<LoadingFallback />}>
           <Canvas
-            camera={{
-              position: [1, 1, 2.5],
-              fov: 75,
-              near: 0.1,
-              far: 1000,
-            }}
+            camera={{ position: [0, 0, 5], fov: 75 }}
             style={{ background: "#f3f4f6" }}
           >
-            <Model geometry={geometry} analysisReport={analysisReport} scale={scale} />
+            <Model geometry={geometry} analysisReport={analysisReport} />
           </Canvas>
         </Suspense>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <ZoomIn className="h-4 w-4 text-muted-foreground" />
-        <Slider
-          defaultValue={[5]}
-          min={0.1}
-          max={50}
-          step={0.5}
-          value={[scale]}
-          onValueChange={handleScaleChange}
-          className="w-full max-w-xs"
-        />
-        <span className="text-sm text-muted-foreground">Scale: {scale.toFixed(1)}x</span>
       </div>
 
       {analysisReport && (
