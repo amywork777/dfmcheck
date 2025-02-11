@@ -148,8 +148,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <div className="container max-w-4xl mx-auto py-16 px-4">
-        <div className="space-y-8">
+      <div className="container max-w-4xl mx-auto py-8 px-4">
+        <div className="space-y-4">
           <SiteHeader />
           <p className="text-center text-muted-foreground">
             Upload your 3D model for instant manufacturability feedback

@@ -75,8 +75,8 @@ export default function Report() {
 
   return (
     <div className="min-h-screen">
-      <div className="container max-w-4xl mx-auto py-12 px-4">
-        <div className="space-y-8">
+      <div className="container max-w-4xl mx-auto py-8 px-4">
+        <div className="space-y-4">
           <SiteHeader />
 
           <div className="flex items-center gap-4">
