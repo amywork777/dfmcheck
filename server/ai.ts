@@ -28,36 +28,37 @@ export async function generateDesignInsights(
       `Material Recommendations: ${report.materialRecommendations.recommended.join(', ')}`
     ].join('\n');
 
-    const customGuidelinesStatus = designGuidelines 
-      ? `Custom Guidelines:\n${report.customGuidelines?.validations.map(v => 
+    const customGuidelinesStatus = report.customGuidelines 
+      ? `Custom Guidelines Analysis:\n${report.customGuidelines.validations.map(v => 
           `- ${v.rule}: ${v.pass ? 'Passed' : 'Failed'}${v.details ? ` (${v.details})` : ''}`
         ).join('\n')}`
       : 'No custom guidelines provided';
 
-    const prompt = `As a DFM expert, analyze this manufacturing report and provide clear, actionable insights. Structure your response as follows:
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide insights focused on both standard requirements and custom guidelines. Structure your response as follows:
 
-Critical Design Issues:
-• Summarize the main issues identified in the analysis
-• Include specific measurements and quantities
-• Note any violations of custom guidelines
+• Summary of Critical Design Issues
+  - Analyze standard manufacturing requirements
+  - Evaluate custom guideline compliance
+  - Highlight key measurements and quantities
 
-Recommended Actions:
-• List specific improvements needed
-• Include target measurements where applicable
-• Address any custom guideline violations
+• Required Design Modifications
+  - List specific changes needed
+  - Include target measurements
+  - Address custom guideline violations
 
-Process Guidelines:
-• Add specific recommendations for ${process}
-• Include material and tooling considerations
+• Process-Specific Guidelines
+  - ${process} specific recommendations
+  - Material selection insights
+  - Tooling considerations
 
 Manufacturing Process: ${process}
 
-Analysis Results:
+Standard Analysis:
 ${standardGuidelinesStatus}
 
 ${customGuidelinesStatus}
 
-Format the response as a clear, structured list with bullet points. Each point should be actionable and specific.`;
+Format your response using clear bullet points, maintaining the above structure. Each point should be specific and actionable.`;
 
     console.log('Sending request to OpenAI...');
 
@@ -66,7 +67,7 @@ Format the response as a clear, structured list with bullet points. Each point s
       messages: [
         {
           role: "system",
-          content: "You are a DFM expert providing clear, structured manufacturing insights. Format your response as a bullet-pointed list with clear sections and actionable recommendations."
+          content: "You are a DFM expert providing clear, structured manufacturing insights. Format your response using bullet points with clear sections. Ensure each recommendation is specific and actionable."
         },
         {
           role: "user",
