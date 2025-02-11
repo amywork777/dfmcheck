@@ -22,43 +22,44 @@ Process-Specific Guidelines – include one-line recommendations for ${process} 
 
     // For now return a simulated analysis - in production this would call OpenAI API
     const materialRecs = report.materialRecommendations;
-    const customRules = report.customGuidelines?.validations || [];
     
-    let output = 'MATERIAL RECOMMENDATIONS\n\n';
+    let output = 'MATERIAL SELECTION\n\n';
     
     if (materialRecs?.recommended?.length) {
       materialRecs.recommended.forEach(mat => {
-        output += `Recommended material: ${mat}\n`;
+        output += `☐ ${mat} - recommended for optimal performance and manufacturability\n`;
       });
     }
     
     if (materialRecs?.notRecommended?.length) {
       materialRecs.notRecommended.forEach(mat => {
-        output += `Not recommended material: ${mat}\n`;
+        output += `☐ Not recommended: ${mat} - may cause manufacturing issues\n`;
       });
     }
     
-    output += '\nCUSTOM GUIDELINES VALIDATION\n\n';
-    customRules.forEach(rule => {
-      output += `Design rule check: ${rule.rule} - ${rule.pass ? 'Passed' : 'Failed'}\n`;
-    });
+    if (report.customGuidelines?.validations?.length) {
+      output += '\nCUSTOM GUIDELINES\n\n';
+      report.customGuidelines.validations.forEach(rule => {
+        output += `☐ ${rule.rule} - ${rule.pass ? 'Passed' : 'Failed'}\n`;
+      });
+    }
     
-    output += 'Summary of Critical Design Issues\n\n';
-    output += `Wall thickness check: ${report.wallThickness.pass ? 'Passed' : 'Failed'} - ${report.wallThickness.issues.length} issues found\n`;
-    output += `Overhang check: ${report.overhangs.pass ? 'Passed' : 'Failed'} - ${report.overhangs.issues.length} issues found\n`;
-    output += `Hole size check: ${report.holeSize.pass ? 'Passed' : 'Failed'} - ${report.holeSize.issues.length} issues found\n`;
-    output += `Draft angle check: ${report.draftAngles.pass ? 'Passed' : 'Failed'} - ${report.draftAngles.issues.length} issues found\n`;
+    output += '\nDESIGN ISSUES\n\n';
+    output += `☐ Wall thickness: ${report.wallThickness.pass ? 'Passed' : 'Failed'} - ${report.wallThickness.issues.length} issues found\n`;
+    output += `☐ Overhangs: ${report.overhangs.pass ? 'Passed' : 'Failed'} - ${report.overhangs.issues.length} issues found\n`;
+    output += `☐ Hole size: ${report.holeSize.pass ? 'Passed' : 'Failed'} - ${report.holeSize.issues.length} issues found\n`;
+    output += `☐ Draft angles: ${report.draftAngles.pass ? 'Passed' : 'Failed'} - ${report.draftAngles.issues.length} issues found\n`;
     
-    output += '\nRequired Design Modifications\n\n';
-    output += `Review and adjust wall thickness in areas marked as critical for ${process}\n`;
-    output += `Implement support structures where needed based on geometry analysis\n`;
-    output += `Modify hole dimensions to meet minimum size requirements\n`;
-    output += `Adjust draft angles to ensure proper part removal\n`;
+    output += '\nREQUIRED CHANGES\n\n';
+    output += `☐ Increase wall thickness to minimum ${process === 'injection_molding' ? '2.5mm' : '1.2mm'} in marked areas\n`;
+    output += `☐ Add support structures for any overhanging features\n`;
+    output += `☐ Ensure hole dimensions meet minimum size requirements\n`;
+    output += `☐ Verify draft angles are sufficient for part removal\n`;
     
-    output += '\nProcess-Specific Guidelines\n\n';
-    output += `Follow ${process} specific tolerances and surface finish requirements\n`;
-    output += `Consider material properties and their impact on manufacturability\n`;
-    output += `Review tooling access and fixturing requirements\n`;
+    output += '\nPROCESS GUIDELINES\n\n';
+    output += `☐ Follow ${process} tolerances: ±0.127mm for critical features\n`;
+    output += `☐ Consider material flow and gate locations\n`;
+    output += `☐ Review parting line placement and ejector pin locations\n`;
     
     return output;
   } catch (error) {
