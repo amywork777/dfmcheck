@@ -278,7 +278,7 @@ export function ModelViewer({
 }: ModelViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(5); // Changed default scale to 5
 
   useEffect(() => {
     if (!fileContent) {
@@ -348,10 +348,10 @@ export function ModelViewer({
       <div className="flex items-center gap-4">
         <ZoomIn className="h-4 w-4 text-muted-foreground" />
         <Slider
-          defaultValue={[1]}
+          defaultValue={[5]}
           min={0.1}
-          max={10}
-          step={0.1}
+          max={50}
+          step={0.5}
           value={[scale]}
           onValueChange={handleScaleChange}
           className="w-full max-w-xs"
