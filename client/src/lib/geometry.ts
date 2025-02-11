@@ -199,7 +199,7 @@ export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> 
     return parseSTL(stlData.buffer);
   } catch (error) {
     console.error('STEP parsing error:', error);
-    throw new Error('Failed to parse STEP file. The file might be corrupted or in an unsupported format.');
+    throw new Error('Failed to parse STEP file. Please ensure the file is a valid STEP format and try again.');
   }
 }
 
@@ -408,12 +408,6 @@ export async function analyzeGeometry(fileContent: string, process: ProcessType)
 
     const wallThickness = analyzeWallThickness(triangles, process);
     const overhangs = analyzeOverhangs(triangles, normals);
-
-    console.log('Analysis complete:', {
-      wallThicknessIssues: wallThickness.issues.length,
-      overhangIssues: overhangs.issues.length,
-      totalTime: Date.now() - startTime,
-    });
 
     return {
       wallThickness,
