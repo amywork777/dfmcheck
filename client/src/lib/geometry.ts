@@ -1,6 +1,7 @@
 import type { DFMReport } from "@shared/schema";
 import * as THREE from 'three';
-import { io, modeling } from '@jscad/modeling';
+import * as JSCADio from '@jscad/io';
+import * as JSCADmodeling from '@jscad/modeling';
 
 const MIN_WALL_THICKNESS = {
   '3d_printing': 0.8, // mm
@@ -167,20 +168,60 @@ export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> 
     const decoder = new TextDecoder();
     const stepContent = decoder.decode(data);
 
+    console.log('Parsing STEP file content...');
+
     // Use JSCAD to parse STEP file
-    const parsed = await io.step.deserialize({
-      content: stepContent,
-      filename: 'model.step'
+    const parsed = await JSCADio.stepDeserializer.deserialize({
+      output: 'geometry',
+      source: stepContent
     });
 
-    // Convert JSCAD geometry to STL format
-    const stlString = io.stl.serialize({
-      content: parsed,
-      filename: 'converted.stl'
+    if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error('No valid geometry found in STEP file');
+    }
+
+    console.log('Converting STEP geometry to triangles...');
+
+    // Convert JSCAD geometry to triangles
+    const geometries = parsed.map(geometry =>
+      JSCADmodeling.geometries.geom3.toTriangles(geometry)
+    ).flat();
+
+    if (geometries.length === 0) {
+      throw new Error('Failed to convert STEP geometry to triangles');
+    }
+
+    // Convert to STL format
+    const triangles: number[] = [];
+    const normals: number[] = [];
+
+    geometries.forEach(triangle => {
+      // Add vertices
+      triangle.vertices.forEach(vertex => {
+        triangles.push(vertex[0], vertex[1], vertex[2]);
+      });
+
+      // Calculate normal
+      const v1 = new THREE.Vector3().fromArray(triangle.vertices[0]);
+      const v2 = new THREE.Vector3().fromArray(triangle.vertices[1]);
+      const v3 = new THREE.Vector3().fromArray(triangle.vertices[2]);
+
+      const edge1 = new THREE.Vector3().subVectors(v2, v1);
+      const edge2 = new THREE.Vector3().subVectors(v3, v1);
+      const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+      // Add normal for each vertex
+      for (let i = 0; i < 3; i++) {
+        normals.push(normal.x, normal.y, normal.z);
+      }
     });
 
-    // Parse the STL string as binary
-    return parseSTL(new TextEncoder().encode(stlString).buffer);
+    console.log(`Converted ${geometries.length} triangles from STEP file`);
+
+    return {
+      triangles: new Float32Array(triangles),
+      normals: new Float32Array(normals)
+    };
   } catch (error) {
     console.error('STEP parsing error:', error);
     throw new Error('Failed to parse STEP file. The file might be corrupted or in an unsupported format.');
