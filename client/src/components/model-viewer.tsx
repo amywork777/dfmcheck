@@ -3,7 +3,8 @@ import { OrbitControls, Html } from "@react-three/drei";
 import { Suspense, useEffect, useState, useCallback } from "react";
 import * as THREE from "three";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { AlertCircle, Loader2, ZoomIn } from "lucide-react";
 import { parseSTL } from "@/lib/geometry";
 import type { DFMReport } from "@shared/schema";
 
@@ -147,9 +148,10 @@ function IssueHighlight({
 interface ModelProps {
   geometry: THREE.BufferGeometry;
   analysisReport?: DFMReport | null;
+  scale: number;
 }
 
-function Model({ geometry, analysisReport }: ModelProps) {
+function Model({ geometry, analysisReport, scale }: ModelProps) {
   const [issuePoints, setIssuePoints] = useState<(IssueHighlightProps & { id: number })[]>([]);
   const [highlightedIssueId, setHighlightedIssueId] = useState<number | null>(null);
 
@@ -223,7 +225,7 @@ function Model({ geometry, analysisReport }: ModelProps) {
     <>
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
-      <mesh geometry={geometry}>
+      <mesh geometry={geometry} scale={[scale, scale, scale]}>
         <meshPhongMaterial
           color="#777"
           transparent
@@ -276,6 +278,7 @@ export function ModelViewer({
 }: ModelViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
     if (!fileContent) {
@@ -299,33 +302,6 @@ export function ModelViewer({
       threeGeometry.computeBoundingSphere();
       threeGeometry.computeBoundingBox();
 
-      if (threeGeometry.boundingSphere && threeGeometry.boundingBox) {
-        const { boundingSphere, boundingBox } = threeGeometry;
-
-        // Calculate the diagonal size of the bounding box
-        const size = new THREE.Vector3();
-        boundingBox.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-
-        // Calculate a scale that will make the model fit nicely in view
-        // Using the camera's FOV and position to determine ideal scale
-        const fov = 75; // matches the camera FOV in Canvas
-        const distance = 2.5; // reduced camera distance for closer view
-        const fovRadians = (fov * Math.PI) / 180;
-        const idealSize = 2 * Math.tan(fovRadians / 2) * distance;
-
-        // Calculate scale with a higher minimum value to ensure visibility
-        let scale = idealSize / maxDim;
-        const minScale = 8.0; // significantly increased minimum scale for very small models
-        scale = Math.max(scale, minScale);
-
-        // Apply the calculated scale
-        threeGeometry.scale(scale, scale, scale);
-
-        // Update bounding sphere after scaling
-        boundingSphere.radius *= scale;
-      }
-
       setGeometry(threeGeometry);
       setError(null);
     } catch (err) {
@@ -333,6 +309,10 @@ export function ModelViewer({
       setError(err instanceof Error ? err.message : "Failed to load 3D model");
     }
   }, [fileContent]);
+
+  const handleScaleChange = useCallback((value: number[]) => {
+    setScale(value[0]);
+  }, []);
 
   if (error) {
     return (
@@ -353,16 +333,30 @@ export function ModelViewer({
         <Suspense fallback={<LoadingFallback />}>
           <Canvas
             camera={{
-              position: [1, 1, 2.5], // Moved camera even closer
+              position: [1, 1, 2.5],
               fov: 75,
               near: 0.1,
               far: 1000,
             }}
             style={{ background: "#f3f4f6" }}
           >
-            <Model geometry={geometry} analysisReport={analysisReport} />
+            <Model geometry={geometry} analysisReport={analysisReport} scale={scale} />
           </Canvas>
         </Suspense>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <ZoomIn className="h-4 w-4 text-muted-foreground" />
+        <Slider
+          defaultValue={[1]}
+          min={0.1}
+          max={10}
+          step={0.1}
+          value={[scale]}
+          onValueChange={handleScaleChange}
+          className="w-full max-w-xs"
+        />
+        <span className="text-sm text-muted-foreground">Scale: {scale.toFixed(1)}x</span>
       </div>
 
       {analysisReport && (
