@@ -12,6 +12,7 @@ import { CheckCircle2, Loader2, X } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
+import { GuidelinesUpload } from "@/components/guidelines-upload";
 import type { DFMReport } from "@shared/schema";
 
 export default function Home() {
@@ -21,11 +22,13 @@ export default function Home() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<DFMReport | null>(null);
+  const [designGuidelines, setDesignGuidelines] = useState<string | undefined>();
 
   const clearUpload = useCallback(() => {
     setSelectedFile(null);
     setFileContent(null);
     setAnalysisReport(null);
+    setDesignGuidelines(undefined); //Added to clear guidelines state
   }, []);
 
   const analyzeMutation = useMutation({
@@ -46,7 +49,7 @@ export default function Home() {
         );
 
         console.log('Starting geometry analysis...');
-        const report = analyzeGeometry(base64, process);
+        const report = analyzeGeometry(base64, process, designGuidelines);
         setAnalysisReport(report);
         console.log('Analysis complete');
 
@@ -54,7 +57,8 @@ export default function Home() {
           fileName: file.name,
           fileContent: base64,
           process,
-          report
+          report,
+          designGuidelines
         });
 
         return await response.json();
@@ -157,6 +161,9 @@ export default function Home() {
             maxSize={50 * 1024 * 1024}
             accept=".stl"
           />
+
+          {/* Design Guidelines Upload */}
+          <GuidelinesUpload onGuidelinesChange={setDesignGuidelines} />
 
           {fileContent && (
             <Card className="p-6">

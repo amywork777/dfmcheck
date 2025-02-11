@@ -180,9 +180,8 @@ function processGeometryChunk(
     const avgThickness = (thickness1 + thickness2 + thickness3) / 3;
 
     if (avgThickness < minThickness && avgThickness > 0.01) { // Filter out extremely small values that might be noise
-      const recommendation = getManufacturingRecommendation(process, avgThickness, minThickness);
       issues.push(
-        `${avgThickness.toFixed(2)}mm wall - ${recommendation}`
+        `${avgThickness.toFixed(2)}mm wall - Consider increasing wall thickness`
       );
       pass = false;
     }
@@ -191,19 +190,6 @@ function processGeometryChunk(
   return { issues, pass };
 }
 
-function getManufacturingRecommendation(process: ProcessType, current: number, minimum: number): string {
-  const increase = minimum - current;
-  switch (process) {
-    case '3d_printing':
-      return `Consider increasing wall thickness by ${increase.toFixed(2)}mm or using supports/reinforcement ribs`;
-    case 'injection_molding':
-      return `Increase wall thickness by ${increase.toFixed(2)}mm or add ribs/gussets for structural support`;
-    case 'cnc_machining':
-      return `Increase thickness by ${increase.toFixed(2)}mm or consider redesigning with integrated support structures`;
-    case 'sheet_metal':
-      return `Use thicker material gauge or add bends/flanges for rigidity`;
-  }
-}
 
 function analyzeWallThickness(triangles: Float32Array, process: ProcessType): GeometryAnalysisResult {
   console.log('Starting wall thickness analysis...');
@@ -294,107 +280,11 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   return { issues, pass };
 }
 
-const BASE_SETUP_COSTS = {
-  '3d_printing': 50,      // USD
-  'injection_molding': 5000,
-  'cnc_machining': 250,
-  'sheet_metal': 200
-} as const;
-
-const LABOR_RATES = {
-  '3d_printing': 45,      // USD per hour
-  'injection_molding': 85,
-  'cnc_machining': 95,
-  'sheet_metal': 75
-} as const;
-
-const MATERIAL_COSTS = {
-  // 3D Printing materials (USD per kg)
-  'PLA': { cost: 25, minOrder: 1, leadTime: '2-3 days' },
-  'PETG': { cost: 30, minOrder: 1, leadTime: '2-3 days' },
-  'ABS': { cost: 28, minOrder: 1, leadTime: '2-3 days' },
-  'TPU': { cost: 45, minOrder: 1, leadTime: '3-4 days' },
-  'Nylon': { cost: 50, minOrder: 1, leadTime: '3-4 days' },
-
-  // CNC materials (USD per kg)
-  'Aluminum 6061': { cost: 15, minOrder: 5, leadTime: '5-7 days' },
-  'Brass': { cost: 25, minOrder: 5, leadTime: '5-7 days' },
-  'Steel 1018': { cost: 10, minOrder: 5, leadTime: '5-7 days' },
-  'Stainless Steel 304': { cost: 20, minOrder: 5, leadTime: '7-10 days' },
-  'PEEK': { cost: 150, minOrder: 1, leadTime: '7-10 days' },
-
-  // Sheet metal (USD per sheet)
-  'Aluminum': { cost: 100, minOrder: 1, leadTime: '3-5 days' },
-  'Steel': { cost: 80, minOrder: 1, leadTime: '3-5 days' },
-  'Stainless Steel': { cost: 150, minOrder: 1, leadTime: '5-7 days' },
-  'Copper': { cost: 200, minOrder: 1, leadTime: '5-7 days' },
-  'Brass Sheet': { cost: 180, minOrder: 1, leadTime: '5-7 days' }
-} as const;
-
-interface CostEstimate {
-  materialCost: number;
-  laborCost: number;
-  setupCost: number;
-  totalCost: number;
-  volumeDiscounts: { quantity: number; discountPercentage: number; pricePerUnit: number }[];
-}
-
-
-function estimateVolume(triangles: Float32Array): number {
-  let volume = 0;
-  for (let i = 0; i < triangles.length; i += 9) {
-    const v1 = new THREE.Vector3(triangles[i], triangles[i + 1], triangles[i + 2]);
-    const v2 = new THREE.Vector3(triangles[i + 3], triangles[i + 4], triangles[i + 5]);
-    const v3 = new THREE.Vector3(triangles[i + 6], triangles[i + 7], triangles[i + 8]);
-
-    // Calculate signed volume of tetrahedron formed by triangle and origin
-    const signedVolume = v1.dot(v2.cross(v3)) / 6.0;
-    volume += Math.abs(signedVolume);
-  }
-  return volume; // in cubic millimeters
-}
-
-function calculateCostEstimate(
-  volume: number,
-  process: ProcessType,
-  complexity: number
-): CostEstimate {
-  const setupCost = BASE_SETUP_COSTS[process];
-  const laborRate = LABOR_RATES[process];
-
-  // Estimate processing time based on volume and complexity
-  const processingHours = (volume / 1000) * complexity * 0.5;
-  const laborCost = processingHours * laborRate;
-
-  // Estimate material cost (assuming average material cost for the process)
-  const materialCostPerUnit = 50; // USD per kg
-  const materialWeight = (volume / 1000000) * 1.2; // Convert mm³ to kg (assuming average density)
-  const materialCost = materialWeight * materialCostPerUnit;
-
-  const totalCost = setupCost + laborCost + materialCost;
-
-  // Calculate volume discounts
-  const volumeDiscounts = [
-    { quantity: 10, discountPercentage: 10, pricePerUnit: totalCost * 0.9 },
-    { quantity: 50, discountPercentage: 20, pricePerUnit: totalCost * 0.8 },
-    { quantity: 100, discountPercentage: 30, pricePerUnit: totalCost * 0.7 },
-    { quantity: 500, discountPercentage: 40, pricePerUnit: totalCost * 0.6 }
-  ];
-
-  return {
-    materialCost,
-    laborCost,
-    setupCost,
-    totalCost,
-    volumeDiscounts
-  };
-}
 
 function generateMaterialRecommendations(
   process: ProcessType,
   wallThicknessIssues: boolean,
   overhangIssues: boolean,
-  complexity: number
 ): {
   recommended: string[];
   notRecommended: string[];
@@ -431,6 +321,10 @@ function generateMaterialRecommendations(
         reasoning = 'Standard machining requirements, all materials are suitable.';
       }
       break;
+
+    default:
+      recommended.push(...availableMaterials);
+      reasoning = 'Standard manufacturing requirements, all materials are suitable.';
   }
 
   return {
@@ -440,7 +334,43 @@ function generateMaterialRecommendations(
   };
 }
 
-export function analyzeGeometry(fileContent: string, process: ProcessType): DFMReport {
+function validateCustomGuidelines(
+  guidelines: string[],
+  wallThickness: { issues: string[]; pass: boolean },
+  overhangs: { issues: string[]; pass: boolean }
+): Array<{ rule: string; pass: boolean; details?: string }> {
+  return guidelines.map(rule => {
+    const lowerRule = rule.toLowerCase();
+    let pass = true;
+    let details = undefined;
+
+    // Check wall thickness related rules
+    if (lowerRule.includes('wall thickness') || lowerRule.includes('thickness')) {
+      pass = wallThickness.pass;
+      details = !pass ? `Found ${wallThickness.issues.length} wall thickness issues` : undefined;
+    }
+
+    // Check overhang related rules
+    if (lowerRule.includes('overhang') || lowerRule.includes('support')) {
+      pass = overhangs.pass;
+      details = !pass ? `Found ${overhangs.issues.length} overhang issues` : undefined;
+    }
+
+    // Add more custom rule validations as needed
+
+    return {
+      rule,
+      pass,
+      details
+    };
+  });
+}
+
+export function analyzeGeometry(
+  fileContent: string, 
+  process: ProcessType,
+  designGuidelines?: string
+): DFMReport {
   if (!fileContent) {
     throw new Error("No file content provided for analysis");
   }
@@ -463,22 +393,26 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
     const wallThickness = analyzeWallThickness(triangles, process);
     const overhangs = analyzeOverhangs(triangles, normals);
 
-    // Calculate volume and complexity for cost estimation
-    const volume = estimateVolume(triangles);
-    const complexity = 1 +
-      (wallThickness.issues.length * 0.1) +
-      (overhangs.issues.length * 0.15);
-
     // Generate material recommendations
     const materialRecommendations = generateMaterialRecommendations(
       process,
       wallThickness.issues.length > 0,
-      overhangs.issues.length > 0,
-      complexity
+      overhangs.issues.length > 0
     );
 
-    // Calculate cost estimate
-    const costEstimate = calculateCostEstimate(volume, process, complexity);
+    // Process custom design guidelines if provided
+    const customGuidelines = designGuidelines ? {
+      rules: designGuidelines.split('\n').map(line => line.trim()).filter(line => line.length > 0),
+      validations: []
+    } : undefined;
+
+    if (customGuidelines) {
+      customGuidelines.validations = validateCustomGuidelines(
+        customGuidelines.rules,
+        wallThickness,
+        overhangs
+      );
+    }
 
     return {
       wallThickness,
@@ -486,7 +420,7 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
       holeSize: { issues: [], pass: true },
       draftAngles: { issues: [], pass: true },
       materialRecommendations,
-      costEstimate
+      customGuidelines
     };
   } catch (error) {
     console.error('Geometry analysis error:', error);

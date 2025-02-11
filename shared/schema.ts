@@ -17,25 +17,6 @@ export const processBasedMaterials = {
   'sheet_metal': ['Aluminum', 'Steel', 'Stainless Steel', 'Copper', 'Brass']
 } as const;
 
-export type MaterialCost = {
-  materialName: string;
-  costPerUnit: number;  // Cost per kg or per sheet
-  minimumOrder: number; // Minimum order quantity
-  leadTime: string;     // Estimated lead time
-};
-
-export type CostEstimate = {
-  materialCost: number;
-  laborCost: number;
-  setupCost: number;
-  totalCost: number;
-  volumeDiscounts: Array<{
-    quantity: number;
-    discountPercentage: number;
-    pricePerUnit: number;
-  }>;
-};
-
 export type DFMReport = {
   wallThickness: {
     issues: string[];
@@ -58,7 +39,14 @@ export type DFMReport = {
     notRecommended: string[];
     reasoning: string;
   };
-  costEstimate: CostEstimate;
+  customGuidelines?: {
+    rules: string[];
+    validations: Array<{
+      rule: string;
+      pass: boolean;
+      details?: string;
+    }>;
+  };
 };
 
 export const analyses = pgTable("analyses", {
@@ -67,13 +55,15 @@ export const analyses = pgTable("analyses", {
   fileContent: text("file_content").notNull(),
   process: text("process", {enum: manufacturingProcesses}).notNull(),
   report: jsonb("report").notNull(),
+  designGuidelines: text("design_guidelines"),
 });
 
 export const insertAnalysisSchema = createInsertSchema(analyses).pick({
   fileName: true,
   fileContent: true,
   process: true,
-  report: true
+  report: true,
+  designGuidelines: true
 });
 
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
