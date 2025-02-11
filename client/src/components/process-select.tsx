@@ -18,7 +18,11 @@ export function ProcessSelect({ processes, onAnalyze, isLoading, disabled }: Pro
   const formatProcessName = (process: string) => {
     return process
       .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .map(word => {
+        if (word === 'cnc') return 'CNC';
+        if (word === '3d') return '3D';
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
       .join(' ');
   };
 
