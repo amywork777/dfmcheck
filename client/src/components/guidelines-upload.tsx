@@ -35,20 +35,30 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
     try {
       setUploading(true);
 
-      // Create FormData
       const formData = new FormData();
       formData.append('file', file);
+
+      console.log('Uploading PDF file:', file.name, 'size:', file.size);
 
       const response = await fetch('/api/parse-pdf', {
         method: 'POST',
         body: formData
       });
 
-      if (!response.ok) {
-        throw new Error(await response.text());
+      const responseText = await response.text();
+      let jsonResponse;
+      try {
+        jsonResponse = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Invalid JSON response:', responseText);
+        throw new Error('Server returned invalid response');
       }
 
-      const { text } = await response.json();
+      if (!response.ok) {
+        throw new Error(jsonResponse.error || 'Failed to process PDF');
+      }
+
+      const { text } = jsonResponse;
 
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
         throw new Error('No text could be extracted from the PDF');
@@ -119,6 +129,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) void handleFileUpload(file);
+                  e.target.value = ''; // Reset input
                 }}
                 disabled={uploading}
               />
