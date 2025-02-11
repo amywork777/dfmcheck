@@ -1,18 +1,20 @@
 import OpenAI from "openai";
 import { DFMReport } from "@shared/schema";
 
-if (!process.env.OPENAI_API_KEY) {
+const apiKey = process.env.OPENAI_API_KEY;
+
+if (!apiKey) {
   console.warn("Warning: OPENAI_API_KEY is not set. AI insights will be disabled.");
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey });
 
 export async function generateDesignInsights(
   report: DFMReport,
   process: string,
   designGuidelines?: string
 ): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!apiKey) {
     console.warn("AI insights disabled: No API key available");
     return "AI insights are currently disabled. Please configure OpenAI API key to enable this feature.";
   }

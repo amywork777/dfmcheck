@@ -39,7 +39,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
 - Maximum overhang angle 30 degrees
 - All holes must be larger than 3mm
 - Support structures required for overhangs"
-            className="min-h-[200px] font-mono text-sm"
+            className="min-h-[200px] font-sans text-sm leading-relaxed"
           />
 
           {guidelines && (
