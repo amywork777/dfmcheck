@@ -316,7 +316,7 @@ export function ModelViewer({
 
         // Calculate scale with a higher minimum value to ensure visibility
         let scale = idealSize / maxDim;
-        const minScale = 4.0; // increased minimum scale for very small models
+        const minScale = 8.0; // significantly increased minimum scale for very small models
         scale = Math.max(scale, minScale);
 
         // Apply the calculated scale
