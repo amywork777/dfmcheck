@@ -34,15 +34,19 @@ export async function generateDesignInsights(
         ).join('\n')}`
       : 'No custom guidelines provided';
 
-    const prompt = `As a DFM expert, analyze this manufacturing report and provide clear, actionable insights. Format the response in these sections:
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide a clear checklist of insights. Create a structured response following this format:
 
-Critical Design Issues:
-• List the most important issues identified
-• Be specific and quantitative where possible
+Summary of Critical Design Issues:
+□ List the primary concern highlighted in the manufacturing report
+□ Include specific numbers and measurements where possible
 
-Improvement Actions:
-• List 2-3 specific actions to address the issues
-• Include measurable targets where applicable
+Specific Recommendations for Improvement:
+□ List each recommendation as a separate checklist item
+□ Include quantitative targets when applicable
+
+Manufacturing Process Considerations:
+□ Add process-specific guidelines
+□ Include tooling and setup recommendations
 
 Manufacturing Process: ${process}
 
@@ -51,7 +55,7 @@ ${standardGuidelinesStatus}
 
 ${customGuidelinesStatus}
 
-Keep the response focused, actionable, and organized in clear bullet points.`;
+Keep each checklist item focused and actionable. Use clear bullet points and maintain a consistent checklist format.`;
 
     console.log('Sending request to OpenAI...');
 
@@ -60,7 +64,7 @@ Keep the response focused, actionable, and organized in clear bullet points.`;
       messages: [
         {
           role: "system",
-          content: "You are a DFM expert providing clear, structured manufacturing insights. Use bullet points and focus on actionable recommendations."
+          content: "You are a DFM expert providing clear, structured manufacturing insights. Format your response as a checklist with □ bullets and keep recommendations actionable and specific."
         },
         {
           role: "user",
