@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { generateDFMSummary } from "@/lib/ai";
 import type { DFMReport } from "@shared/schema";
 
@@ -9,8 +10,13 @@ interface AISummaryProps {
   process: string;
 }
 
+interface Insight {
+  text: string;
+  checked: boolean;
+}
+
 export function AISummary({ report, process }: AISummaryProps) {
-  const [insights, setInsights] = useState<string[]>([]);
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +26,12 @@ export function AISummary({ report, process }: AISummaryProps) {
         setLoading(true);
         const aiSummary = await generateDFMSummary(report, process);
         if (aiSummary) {
-          // Split the summary into bullet points if it contains them
+          // Split the summary into insights and create objects with checked state
           const points = aiSummary
             .split(/[•\-\*]\s+/)
-            .filter(point => point.trim().length > 0);
-          setInsights(points.length > 1 ? points : [aiSummary]);
+            .filter(point => point.trim().length > 0)
+            .map(text => ({ text, checked: false }));
+          setInsights(points.length > 1 ? points : [{ text: aiSummary, checked: false }]);
         }
       } catch (err) {
         setError("Failed to generate AI summary");
@@ -36,6 +43,14 @@ export function AISummary({ report, process }: AISummaryProps) {
 
     fetchSummary();
   }, [report, process]);
+
+  const toggleInsight = (index: number) => {
+    setInsights(prevInsights => 
+      prevInsights.map((insight, i) => 
+        i === index ? { ...insight, checked: !insight.checked } : insight
+      )
+    );
+  };
 
   if (error) {
     return null;
@@ -53,11 +68,21 @@ export function AISummary({ report, process }: AISummaryProps) {
               <span>Analyzing design...</span>
             </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {insights.map((insight, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-1 shrink-0" />
-                  <span className="text-sm text-muted-foreground">{insight}</span>
+                <li key={index} className="flex items-start gap-3">
+                  <Checkbox
+                    id={`insight-${index}`}
+                    checked={insight.checked}
+                    onCheckedChange={() => toggleInsight(index)}
+                    className="mt-1"
+                  />
+                  <label
+                    htmlFor={`insight-${index}`}
+                    className={`text-sm ${insight.checked ? 'text-muted-foreground line-through' : 'text-foreground'} cursor-pointer flex-1`}
+                  >
+                    {insight.text}
+                  </label>
                 </li>
               ))}
             </ul>
