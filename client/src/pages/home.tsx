@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
 import type { DFMReport } from "@shared/schema";
+import { readSTEPFile } from "@/lib/geometry";
 
 export default function Home() {
   const { toast } = useToast();
@@ -38,7 +39,7 @@ export default function Home() {
         );
 
         console.log('Starting geometry analysis...');
-        const report = analyzeGeometry(base64, process);
+        const report = await analyzeGeometry(base64, process);
         setAnalysisReport(report);
         console.log('Analysis complete');
 
@@ -83,7 +84,8 @@ export default function Home() {
   }, [analyzeMutation, selectedFile]);
 
   const handleFileSelected = useCallback(async (file: File) => {
-    if (file.name.toLowerCase().endsWith('.stl')) {
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (['stl', 'step', 'stp'].includes(extension || '')) {
       try {
         if (file.size > 50 * 1024 * 1024) {
           toast({
@@ -99,7 +101,7 @@ export default function Home() {
 
         if (arrayBuffer.byteLength < 84) {
           toast({
-            title: "Invalid STL file",
+            title: "Invalid 3D model file",
             description: "The file appears to be corrupted or invalid",
             variant: "destructive"
           });
@@ -132,7 +134,7 @@ export default function Home() {
 
     toast({
       title: "Invalid file type",
-      description: "Please upload an STL file",
+      description: "Please upload an STL or STEP file",
       variant: "destructive"
     });
     return false;
@@ -155,7 +157,7 @@ export default function Home() {
             onFileSelected={handleFileSelected}
             onFileUploaded={setSelectedFile}
             maxSize={50 * 1024 * 1024}
-            accept=".stl"
+            accept=".stl,.step,.stp"
           />
 
           {fileContent && (

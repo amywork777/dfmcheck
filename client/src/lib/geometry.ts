@@ -1,5 +1,6 @@
 import type { DFMReport } from "@shared/schema";
 import * as THREE from 'three';
+import { io, modeling } from '@jscad/modeling';
 
 const MIN_WALL_THICKNESS = {
   '3d_printing': 0.8, // mm
@@ -129,6 +130,43 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     throw error;
   }
 }
+
+export function isSTEPFile(data: ArrayBuffer): boolean {
+  try {
+    const headerView = new Uint8Array(data, 0, 10);
+    const decoder = new TextDecoder();
+    const header = decoder.decode(headerView);
+    return header.includes('ISO-10303') || header.includes('STEP');
+  } catch (error) {
+    return false;
+  }
+}
+
+export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> {
+  try {
+    const decoder = new TextDecoder();
+    const stepContent = decoder.decode(data);
+
+    // Use JSCAD to parse STEP file
+    const parsed = await io.step.deserialize({
+      content: stepContent,
+      filename: 'model.step'
+    });
+
+    // Convert JSCAD geometry to STL format
+    const stlString = io.stl.serialize({
+      content: parsed,
+      filename: 'converted.stl'
+    });
+
+    // Parse the STL string as binary
+    return parseSTL(new TextEncoder().encode(stlString).buffer);
+  } catch (error) {
+    console.error('STEP parsing error:', error);
+    throw new Error('Failed to parse STEP file. The file might be corrupted or in an unsupported format.');
+  }
+}
+
 
 interface GeometryAnalysisResult {
   issues: string[];
@@ -286,7 +324,7 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   return { issues, pass };
 }
 
-export function analyzeGeometry(fileContent: string, process: ProcessType): DFMReport {
+export async function analyzeGeometry(fileContent: string, process: ProcessType): Promise<DFMReport> {
   if (!fileContent) {
     throw new Error("No file content provided for analysis");
   }
@@ -303,8 +341,22 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
 
     console.log('Binary data size:', bytes.buffer.byteLength, 'bytes');
 
-    const { triangles, normals } = parseSTL(bytes.buffer);
-    console.log('Successfully parsed STL geometry');
+    let triangles: Float32Array;
+    let normals: Float32Array;
+
+    if (isSTEPFile(bytes.buffer)) {
+      console.log('Detected STEP file format');
+      const stepResult = await parseSTEPFile(bytes.buffer);
+      triangles = stepResult.triangles;
+      normals = stepResult.normals;
+    } else {
+      console.log('Detected STL file format');
+      const stlResult = parseSTL(bytes.buffer);
+      triangles = stlResult.triangles;
+      normals = stlResult.normals;
+    }
+
+    console.log('Successfully parsed geometry');
 
     const wallThickness = analyzeWallThickness(triangles, process);
     const overhangs = analyzeOverhangs(triangles, normals);

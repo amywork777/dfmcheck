@@ -45,10 +45,10 @@ export function FileUpload({ onFileSelected, onFileUploaded, maxSize, accept }: 
         <div className="space-y-2">
           <h3 className="font-medium">Drop your 3D model here</h3>
           <p className="text-sm text-muted-foreground">
-            Upload a binary STL file for best compatibility
+            Upload a binary STL or STEP file
           </p>
           <p className="text-xs text-muted-foreground">
-            Most 3D modeling software can export as binary STL
+            Common CAD formats: .stl (binary), .step, .stp
           </p>
         </div>
         <input
