@@ -29,7 +29,7 @@ export function AISummary({ report, process }: AISummaryProps) {
         const aiSummary = await generateDFMSummary(report, process);
 
         if (!aiSummary) {
-          setError("Unable to generate AI insights. Please ensure OpenAI API key is configured.");
+          setError("Unable to generate AI insights. Please check if the OpenAI API key is configured in the environment variables.");
           return;
         }
 
@@ -41,7 +41,7 @@ export function AISummary({ report, process }: AISummaryProps) {
 
         setInsights(points.length > 1 ? points : [{ text: aiSummary, checked: false }]);
       } catch (err: any) {
-        setError(err?.message || "Failed to generate AI summary");
+        setError(err?.message || "Failed to generate AI insights. Please try again later.");
         console.error('AI Summary Error:', err);
       } finally {
         setLoading(false);
@@ -65,9 +65,11 @@ export function AISummary({ report, process }: AISummaryProps) {
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-yellow-500 mt-1" />
           <div className="flex-1">
-            <h3 className="font-medium mb-3">AI Design Insights</h3>
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+            <h3 className="font-medium text-base mb-3">AI Design Insights</h3>
+            <Alert variant="destructive" className="bg-red-50 border-red-200">
+              <AlertDescription className="text-sm font-normal">
+                {error}
+              </AlertDescription>
             </Alert>
           </div>
         </div>
@@ -80,11 +82,11 @@ export function AISummary({ report, process }: AISummaryProps) {
       <div className="flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-blue-500 mt-1" />
         <div className="flex-1">
-          <h3 className="font-medium mb-3">AI Design Insights</h3>
+          <h3 className="font-medium text-base mb-3">AI Design Insights</h3>
           {loading ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Analyzing design...</span>
+              <span className="text-sm font-normal">Analyzing design...</span>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -98,7 +100,7 @@ export function AISummary({ report, process }: AISummaryProps) {
                   />
                   <label
                     htmlFor={`insight-${index}`}
-                    className={`text-sm font-medium ${insight.checked ? 'text-muted-foreground line-through' : 'text-foreground'} cursor-pointer flex-1`}
+                    className={`text-sm font-normal ${insight.checked ? 'text-muted-foreground line-through' : 'text-foreground'} cursor-pointer flex-1`}
                   >
                     {insight.text}
                   </label>

@@ -22,8 +22,8 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-500 mt-1" />
           <div>
-            <h3 className="font-medium mb-2">Custom Design Guidelines (Optional)</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="font-medium text-base mb-2">Custom Design Guidelines (Optional)</h3>
+            <p className="text-sm text-muted-foreground font-normal">
               Optionally add your specific design requirements and manufacturing constraints. 
               Leave empty to use standard manufacturing guidelines.
             </p>
@@ -39,7 +39,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
 - Maximum overhang angle 30 degrees
 - All holes must be larger than 3mm
 - Support structures required for overhangs"
-            className="min-h-[200px] font-sans text-sm leading-relaxed"
+            className="min-h-[200px] font-normal text-sm leading-relaxed"
           />
 
           {guidelines && (
