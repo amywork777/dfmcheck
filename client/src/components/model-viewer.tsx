@@ -278,8 +278,7 @@ export function ModelViewer({
 }: ModelViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scale, setScale] = useState(10); // Increased default scale to 10
-
+  const [scale, setScale] = useState(10); 
   useEffect(() => {
     if (!fileContent) {
       setError("No file content provided");
@@ -350,7 +349,7 @@ export function ModelViewer({
         <Slider
           defaultValue={[10]}
           min={0.1}
-          max={200}
+          max={1000}
           step={0.5}
           value={[scale]}
           onValueChange={handleScaleChange}
