@@ -11,8 +11,6 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
 import type { DFMReport } from "@shared/schema";
-import { analyzeImage } from "@/lib/image-analysis";
-import type { ImageAnalysis } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
@@ -23,7 +21,6 @@ export default function Home() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<DFMReport | null>(null);
-  const [imageAnalysis, setImageAnalysis] = useState<ImageAnalysis | null>(null);
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File; process: typeof manufacturingProcesses[number] }) => {
@@ -168,21 +165,17 @@ export default function Home() {
         };
         reader.readAsDataURL(file);
 
-        // Perform image analysis
-        const analysis = await analyzeImage(file);
-        setImageAnalysis(analysis);
         setSelectedImage(file);
-
         toast({
-          title: "Image analyzed successfully",
-          description: `Analysis complete for: ${file.name}`,
+          title: "Image uploaded successfully",
+          description: `Selected image: ${file.name}`,
         });
         return true;
       } catch (error) {
-        console.error('Image processing error:', error);
+        console.error('Image reading error:', error);
         toast({
-          title: "Error processing image",
-          description: error instanceof Error ? error.message : "Failed to process the image",
+          title: "Error reading image",
+          description: error instanceof Error ? error.message : "Failed to read the image",
           variant: "destructive"
         });
         return false;
@@ -278,84 +271,6 @@ export default function Home() {
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 <span>Analyzing model geometry...</span>
-              </div>
-            </Card>
-          )}
-          {imagePreview && imageAnalysis && (
-            <Card className="p-6 space-y-6">
-              <h3 className="font-medium mb-4">Design Analysis</h3>
-              <img 
-                src={imagePreview} 
-                alt="Uploaded design" 
-                className="w-full h-auto rounded-lg mb-6"
-              />
-
-              <div className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <h4 className="font-medium mb-3">Design Considerations</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <h5 className="text-sm font-medium text-muted-foreground">Aesthetics</h5>
-                      <ul className="list-disc list-inside text-sm space-y-1">
-                        {imageAnalysis.designConsiderations.aesthetic.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h5 className="text-sm font-medium text-muted-foreground">Ergonomics</h5>
-                      <ul className="list-disc list-inside text-sm space-y-1">
-                        {imageAnalysis.designConsiderations.ergonomics.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-3">Manufacturing Considerations</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <h5 className="text-sm font-medium text-muted-foreground">Materials</h5>
-                      <ul className="list-disc list-inside text-sm space-y-1">
-                        {imageAnalysis.manufacturingConsiderations.materials.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h5 className="text-sm font-medium text-muted-foreground">Processes</h5>
-                      <ul className="list-disc list-inside text-sm space-y-1">
-                        {imageAnalysis.manufacturingConsiderations.processes.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-3">Quality Control</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <h5 className="text-sm font-medium text-muted-foreground">Testing Points</h5>
-                      <ul className="list-disc list-inside text-sm space-y-1">
-                        {imageAnalysis.qualityControl.testingPoints.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h5 className="text-sm font-medium text-muted-foreground">Potential Defects</h5>
-                      <ul className="list-disc list-inside text-sm space-y-1">
-                        {imageAnalysis.qualityControl.potentialDefects.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
               </div>
             </Card>
           )}
