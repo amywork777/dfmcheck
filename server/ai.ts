@@ -5,7 +5,7 @@ if (!process.env.OPENAI_API_KEY) {
   console.warn("Warning: OPENAI_API_KEY is not set. AI insights will be disabled.");
 }
 
-const openai = new OpenAI();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function generateDesignInsights(
   report: DFMReport,
@@ -13,22 +13,26 @@ export async function generateDesignInsights(
   designGuidelines?: string
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
+    console.warn("AI insights disabled: No API key available");
     return "AI insights are currently disabled. Please configure OpenAI API key to enable this feature.";
   }
 
-  const standardGuidelinesStatus = [
-    `Wall Thickness: ${report.wallThickness.pass ? 'Passed' : `Failed with ${report.wallThickness.issues.length} issues`}`,
-    `Overhangs: ${report.overhangs.pass ? 'Passed' : `Failed with ${report.overhangs.issues.length} issues`}`,
-    `Material Recommendations: ${report.materialRecommendations.recommended.join(', ')}`
-  ].join('\n');
+  console.log('Generating AI insights for process:', process);
 
-  const customGuidelinesStatus = designGuidelines 
-    ? `Custom Guidelines:\n${report.customGuidelines?.validations.map(v => 
-        `- ${v.rule}: ${v.pass ? 'Passed' : 'Failed'}${v.details ? ` (${v.details})` : ''}`
-      ).join('\n')}`
-    : 'No custom guidelines provided';
+  try {
+    const standardGuidelinesStatus = [
+      `Wall Thickness: ${report.wallThickness.pass ? 'Passed' : `Failed with ${report.wallThickness.issues.length} issues`}`,
+      `Overhangs: ${report.overhangs.pass ? 'Passed' : `Failed with ${report.overhangs.issues.length} issues`}`,
+      `Material Recommendations: ${report.materialRecommendations.recommended.join(', ')}`
+    ].join('\n');
 
-  const prompt = `As a Design for Manufacturing (DFM) expert, analyze the following manufacturing report and provide comprehensive design insights. Consider both standard manufacturing requirements and custom guidelines.
+    const customGuidelinesStatus = designGuidelines 
+      ? `Custom Guidelines:\n${report.customGuidelines?.validations.map(v => 
+          `- ${v.rule}: ${v.pass ? 'Passed' : 'Failed'}${v.details ? ` (${v.details})` : ''}`
+        ).join('\n')}`
+      : 'No custom guidelines provided';
+
+    const prompt = `As a Design for Manufacturing (DFM) expert, analyze the following manufacturing report and provide comprehensive design insights. Consider both standard manufacturing requirements and custom guidelines.
 
 Manufacturing Process: ${process}
 
@@ -45,7 +49,8 @@ Please provide:
 
 Keep the response concise and actionable.`;
 
-  try {
+    console.log('Sending request to OpenAI...');
+
     const response = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
@@ -62,9 +67,16 @@ Keep the response concise and actionable.`;
       max_tokens: 500
     });
 
+    console.log('Successfully received OpenAI response');
     return response.choices[0].message.content || "Failed to generate insights";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to generate AI insights:", error);
-    return "Unable to generate AI insights at this time. Please try again later.";
+    if (error.code === 'insufficient_quota') {
+      return "OpenAI API quota exceeded. Please check your API key configuration.";
+    }
+    if (error.code === 'invalid_api_key') {
+      return "Invalid OpenAI API key. Please check your API key configuration.";
+    }
+    return `Unable to generate AI insights: ${error.message}`;
   }
 }
