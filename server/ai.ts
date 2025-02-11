@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { DFMReport } from "@shared/schema";
 
+if (!process.env.OPENAI_API_KEY) {
+  console.warn("Warning: OPENAI_API_KEY is not set. AI insights will be disabled.");
+}
+
 const openai = new OpenAI();
 
 export async function generateDesignInsights(
@@ -8,6 +12,10 @@ export async function generateDesignInsights(
   process: string,
   designGuidelines?: string
 ): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) {
+    return "AI insights are currently disabled. Please configure OpenAI API key to enable this feature.";
+  }
+
   const standardGuidelinesStatus = [
     `Wall Thickness: ${report.wallThickness.pass ? 'Passed' : `Failed with ${report.wallThickness.issues.length} issues`}`,
     `Overhangs: ${report.overhangs.pass ? 'Passed' : `Failed with ${report.overhangs.issues.length} issues`}`,
@@ -57,6 +65,6 @@ Keep the response concise and actionable.`;
     return response.choices[0].message.content || "Failed to generate insights";
   } catch (error) {
     console.error("Failed to generate AI insights:", error);
-    return "Unable to generate AI insights at this time.";
+    return "Unable to generate AI insights at this time. Please try again later.";
   }
 }
