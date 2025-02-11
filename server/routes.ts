@@ -3,6 +3,14 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertAnalysisSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+import multer from 'multer';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
 
 export function registerRoutes(app: Express) {
   app.post("/api/analyze", async (req, res) => {
@@ -45,19 +53,20 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/parse-pdf", async (req, res) => {
+  app.post("/api/parse-pdf", upload.single('file'), async (req, res) => {
     try {
-      const { content } = req.body;
-      if (!content || !Array.isArray(content)) {
-        return res.status(400).json({ error: "Invalid PDF content" });
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const buffer = Buffer.from(content);
+      if (req.file.mimetype !== 'application/pdf') {
+        return res.status(400).json({ error: "Invalid file type. Please upload a PDF file" });
+      }
 
       try {
         // Dynamically import pdf-parse
         const pdfParse = await import('pdf-parse');
-        const data = await pdfParse.default(buffer);
+        const data = await pdfParse.default(req.file.buffer);
 
         // Extract text and format it as guidelines
         const text = data.text
@@ -65,6 +74,10 @@ export function registerRoutes(app: Express) {
           .map((line: string) => line.trim())
           .filter((line: string) => line.length > 0)
           .join('\n');
+
+        if (!text.trim()) {
+          return res.status(400).json({ error: "No text could be extracted from the PDF" });
+        }
 
         res.json({ text });
       } catch (pdfError) {

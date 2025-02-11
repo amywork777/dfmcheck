@@ -13,6 +13,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
   const { toast } = useToast();
   const [guidelines, setGuidelines] = useState<string>("");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const handleGuidelinesChange = (value: string) => {
     setGuidelines(value);
@@ -22,45 +23,56 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    if (file.type === 'application/pdf') {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const response = await fetch('/api/parse-pdf', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: Array.from(new Uint8Array(arrayBuffer))
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to parse PDF');
-        }
-
-        const { text } = await response.json();
-        setFileName(file.name);
-        handleGuidelinesChange(text);
-
-        toast({
-          title: "PDF Uploaded Successfully",
-          description: `Guidelines extracted from ${file.name}`,
-        });
-      } catch (error) {
-        console.error('PDF parsing error:', error);
-        toast({
-          title: "Error Processing PDF",
-          description: "Failed to extract text from the PDF file",
-          variant: "destructive"
-        });
-      }
-    } else {
+    if (file.type !== 'application/pdf') {
       toast({
         title: "Invalid File Type",
         description: "Please upload a PDF file",
         variant: "destructive"
       });
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/parse-pdf', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const { text } = await response.json();
+
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        throw new Error('No text could be extracted from the PDF');
+      }
+
+      setFileName(file.name);
+      handleGuidelinesChange(text);
+
+      toast({
+        title: "PDF Uploaded Successfully",
+        description: `Guidelines extracted from ${file.name}`,
+      });
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      toast({
+        title: "Error Processing PDF",
+        description: error instanceof Error 
+          ? error.message 
+          : "Failed to extract text from the PDF file",
+        variant: "destructive"
+      });
+      setFileName(null);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -95,9 +107,10 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
               variant="outline"
               className="relative"
               onClick={() => document.getElementById('pdf-upload')?.click()}
+              disabled={uploading}
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload PDF Guidelines
+              <Upload className={`w-4 h-4 mr-2 ${uploading ? 'animate-spin' : ''}`} />
+              {uploading ? 'Processing...' : 'Upload PDF Guidelines'}
               <input
                 id="pdf-upload"
                 type="file"
@@ -107,6 +120,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
                   const file = e.target.files?.[0];
                   if (file) void handleFileUpload(file);
                 }}
+                disabled={uploading}
               />
             </Button>
             {fileName && <span className="text-sm text-muted-foreground">Uploaded: {fileName}</span>}
@@ -120,6 +134,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
                 setFileName(null);
               }}
               className="w-full"
+              disabled={uploading}
             >
               Clear Guidelines
             </Button>
