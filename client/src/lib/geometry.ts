@@ -168,58 +168,39 @@ export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> 
     const decoder = new TextDecoder();
     const stepContent = decoder.decode(data);
 
-    console.log('Parsing STEP file content...');
+    console.log('Starting STEP file parsing...');
 
-    // Use JSCAD to parse STEP file
-    const parsed = await JSCADio.stepDeserializer.deserialize({
+    const deserializeOptions = {
       output: 'geometry',
+      statusCallback: (msg: string) => console.log('JSCAD:', msg),
       source: stepContent
-    });
+    };
+
+    // Parse STEP file using JSCAD
+    const parsed = await JSCADio.stepDeserializer.deserialize(deserializeOptions);
 
     if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
       throw new Error('No valid geometry found in STEP file');
     }
 
-    // Convert JSCAD geometry to triangles
-    const geometries = parsed.map(geometry =>
-      JSCADmodeling.geometries.geom3.toTriangles(geometry)
-    ).flat();
+    console.log('Successfully parsed STEP file, converting to triangles...');
 
-    if (geometries.length === 0) {
-      throw new Error('Failed to convert STEP geometry to triangles');
-    }
-
-    // Convert to STL format
-    const triangles: number[] = [];
-    const normals: number[] = [];
-
-    geometries.forEach(triangle => {
-      // Add vertices
-      triangle.vertices.forEach(vertex => {
-        triangles.push(vertex[0], vertex[1], vertex[2]);
-      });
-
-      // Calculate normal
-      const v1 = new THREE.Vector3().fromArray(triangle.vertices[0]);
-      const v2 = new THREE.Vector3().fromArray(triangle.vertices[1]);
-      const v3 = new THREE.Vector3().fromArray(triangle.vertices[2]);
-
-      const edge1 = new THREE.Vector3().subVectors(v2, v1);
-      const edge2 = new THREE.Vector3().subVectors(v3, v1);
-      const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
-
-      // Add normal for each vertex
-      for (let i = 0; i < 3; i++) {
-        normals.push(normal.x, normal.y, normal.z);
-      }
+    // Convert to binary STL format using JSCAD serializer
+    const stlResult = JSCADio.stlSerializer.serialize({
+      binary: true,
+      geometry: parsed,
+      statusCallback: (msg: string) => console.log('STL conversion:', msg)
     });
 
-    console.log(`Converted ${geometries.length} triangles from STEP file`);
+    if (!stlResult || !(stlResult instanceof Uint8Array)) {
+      throw new Error('Failed to convert STEP geometry to STL format');
+    }
 
-    return {
-      triangles: new Float32Array(triangles),
-      normals: new Float32Array(normals)
-    };
+    console.log('Successfully converted to STL format, parsing...');
+
+    // Parse the resulting STL data using our existing STL parser
+    return parseSTL(stlResult.buffer);
+
   } catch (error) {
     console.error('STEP parsing error:', error);
     throw new Error('Failed to parse STEP file. Please ensure the file is a valid STEP format and try again.');
