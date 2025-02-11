@@ -8,7 +8,7 @@ export function SiteHeader() {
           <div className="flex flex-col items-center">
             <img src="/taiyaki.png" alt="Taiyaki Logo" className="h-12 mb-4" />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              DFM Agent
+              AI DFM Agent
             </h1>
           </div>
         </Link>
