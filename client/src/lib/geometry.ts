@@ -180,48 +180,20 @@ export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> 
       throw new Error('No valid geometry found in STEP file');
     }
 
-    console.log('Converting STEP geometry to triangles...');
-
-    // Convert JSCAD geometry to triangles
-    const geometries = parsed.map(geometry =>
-      JSCADmodeling.geometries.geom3.toTriangles(geometry)
-    ).flat();
-
-    if (geometries.length === 0) {
-      throw new Error('Failed to convert STEP geometry to triangles');
-    }
-
-    // Convert to STL format
-    const triangles: number[] = [];
-    const normals: number[] = [];
-
-    geometries.forEach(triangle => {
-      // Add vertices
-      triangle.vertices.forEach(vertex => {
-        triangles.push(vertex[0], vertex[1], vertex[2]);
-      });
-
-      // Calculate normal
-      const v1 = new THREE.Vector3().fromArray(triangle.vertices[0]);
-      const v2 = new THREE.Vector3().fromArray(triangle.vertices[1]);
-      const v3 = new THREE.Vector3().fromArray(triangle.vertices[2]);
-
-      const edge1 = new THREE.Vector3().subVectors(v2, v1);
-      const edge2 = new THREE.Vector3().subVectors(v3, v1);
-      const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
-
-      // Add normal for each vertex
-      for (let i = 0; i < 3; i++) {
-        normals.push(normal.x, normal.y, normal.z);
-      }
+    // Convert JSCAD geometry to STL format
+    const stlData = JSCADio.stlSerializer.serialize({
+      geometry: parsed,
+      binary: true
     });
 
-    console.log(`Converted ${geometries.length} triangles from STEP file`);
+    if (!stlData || !(stlData instanceof Uint8Array)) {
+      throw new Error('Failed to convert STEP geometry to STL format');
+    }
 
-    return {
-      triangles: new Float32Array(triangles),
-      normals: new Float32Array(normals)
-    };
+    console.log('Successfully converted STEP to STL format');
+
+    // Parse the binary STL data using our existing parser
+    return parseSTL(stlData.buffer);
   } catch (error) {
     console.error('STEP parsing error:', error);
     throw new Error('Failed to parse STEP file. The file might be corrupted or in an unsupported format.');
