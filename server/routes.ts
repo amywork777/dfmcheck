@@ -1,25 +1,37 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertAnalysisSchema } from "@shared/schema";
+import { insertAnalysisSchema, type DFMReport } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { generateDesignInsights } from "./ai";
 
 export function registerRoutes(app: Express) {
   app.post("/api/analyze", async (req, res) => {
     try {
+      console.log('Starting analysis with data:', {
+        fileName: req.body.fileName,
+        process: req.body.process,
+        hasGuidelines: !!req.body.designGuidelines
+      });
+
       const analysis = insertAnalysisSchema.parse(req.body);
+
+      // Ensure report matches DFMReport type
+      const report = analysis.report as DFMReport;
+      if (!report || !report.wallThickness || !report.overhangs || !report.holeSize || !report.draftAngles) {
+        throw new Error("Invalid report structure");
+      }
 
       // Generate AI insights considering both standard and custom guidelines
       const aiInsights = await generateDesignInsights(
-        analysis.report,
+        report,
         analysis.process,
         analysis.designGuidelines
       );
 
       // Add AI insights to the report
       analysis.report = {
-        ...analysis.report,
+        ...report,
         aiInsights
       };
 

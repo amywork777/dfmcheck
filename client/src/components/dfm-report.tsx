@@ -32,7 +32,7 @@ interface DFMReportProps {
 }
 
 type AnalysisSection = {
-  key: keyof Omit<DFMReportType, 'materialRecommendations' | 'customGuidelines'>;
+  key: keyof Pick<DFMReportType, 'wallThickness' | 'overhangs' | 'holeSize' | 'draftAngles'>;
   title: string;
   icon?: React.ComponentType<any>;
 };
@@ -59,6 +59,17 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
   const processName = formatProcessName(process);
   const minThickness = MIN_WALL_THICKNESS[process as keyof typeof MIN_WALL_THICKNESS];
 
+  if (!report || typeof report !== 'object') {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>Invalid report data received</AlertDescription>
+      </Alert>
+    );
+  }
+
+  console.log('Processing report:', report); // Add logging for debugging
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -81,84 +92,13 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
         </div>
       </Card>
 
-      {/* Custom Design Guidelines */}
-      {report.customGuidelines && (
-        <Card className="p-6">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-500 mt-1" />
-            <div>
-              <h3 className="font-medium mb-4">Custom Design Guidelines</h3>
-              <div className="space-y-3">
-                {report.customGuidelines.validations.map((validation, index) => (
-                  <Alert
-                    key={index}
-                    variant={validation.pass ? "default" : "destructive"}
-                  >
-                    <AlertTitle className="flex items-center gap-2">
-                      {validation.pass ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
-                      {validation.rule}
-                    </AlertTitle>
-                    {validation.details && (
-                      <AlertDescription className="mt-2">
-                        {validation.details}
-                      </AlertDescription>
-                    )}
-                  </Alert>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Material Recommendations */}
-      <Card className="p-6">
-        <div className="flex items-start gap-3">
-          <Boxes className="h-5 w-5 text-blue-500 mt-1" />
-          <div>
-            <h3 className="font-medium mb-2">Material Recommendations</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {report.materialRecommendations.reasoning}
-            </p>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <h4 className="text-sm font-medium mb-2">Recommended Materials</h4>
-                <ul className="space-y-1">
-                  {report.materialRecommendations.recommended.map((material) => (
-                    <li key={material} className="text-sm text-green-600 flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      {material}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {report.materialRecommendations.notRecommended.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Not Recommended</h4>
-                  <ul className="space-y-1">
-                    {report.materialRecommendations.notRecommended.map((material) => (
-                      <li key={material} className="text-sm text-red-600 flex items-center gap-2">
-                        <XCircle className="h-4 w-4" />
-                        {material}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </Card>
-
+      {/* Analysis Sections */}
       {sections.map(({ key, title, icon: Icon }) => {
         const section = report[key];
-        if (!section) return null;
+        if (!section || typeof section !== 'object') {
+          console.error(`Invalid section data for ${key}:`, section);
+          return null;
+        }
 
         return (
           <Card key={key} className="p-6">
@@ -177,9 +117,9 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
                   {CONSTRAINT_DESCRIPTIONS[key as keyof typeof CONSTRAINT_DESCRIPTIONS]}
                 </p>
 
-                {section.issues.length > 0 ? (
+                {section.issues && section.issues.length > 0 ? (
                   <div className="space-y-3">
-                    {section.issues.map((issue, i) => {
+                    {section.issues.map((issue: string, i: number) => {
                       const [measurement, ...recommendationParts] = issue.split(' - ');
                       const recommendation = recommendationParts.join(' - ');
 
@@ -205,6 +145,49 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
           </Card>
         );
       })}
+
+      {/* Material Recommendations */}
+      {report.materialRecommendations && (
+        <Card className="p-6">
+          <div className="flex items-start gap-3">
+            <Boxes className="h-5 w-5 text-blue-500 mt-1" />
+            <div>
+              <h3 className="font-medium mb-2">Material Recommendations</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {report.materialRecommendations.reasoning}
+              </p>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Recommended Materials</h4>
+                  <ul className="space-y-1">
+                    {report.materialRecommendations.recommended.map((material) => (
+                      <li key={material} className="text-sm text-green-600 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        {material}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {report.materialRecommendations.notRecommended.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Not Recommended</h4>
+                    <ul className="space-y-1">
+                      {report.materialRecommendations.notRecommended.map((material) => (
+                        <li key={material} className="text-sm text-red-600 flex items-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          {material}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
