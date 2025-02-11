@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { DFMReport } from "@/components/dfm-report";
+import { AISummary } from "@/components/ai-summary";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft } from "lucide-react";
@@ -91,6 +92,8 @@ export default function Report() {
           </div>
 
           <div className="space-y-8">
+            <AISummary report={report} process={analysis.process} />
+
             <Card className="p-6">
               <h3 className="font-medium mb-4">3D Model Preview</h3>
               {analysis.fileContent ? (
