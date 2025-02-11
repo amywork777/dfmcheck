@@ -8,156 +8,133 @@ export async function generateDesignInsights(
   try {
     const customGuidelines = designGuidelines ? `\nCustom Guidelines:\n${designGuidelines}` : '';
 
-    const prompt = `As a DFM expert, analyze the following manufacturing report and provide insights focused on both standard requirements and custom guidelines. Structure your response as follows:
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide detailed design recommendations. Structure your response as follows:
 
 Manufacturing Report Details:
 Process Type: ${process}
 Custom Guidelines: ${customGuidelines || 'None provided'}
 Full Report: ${JSON.stringify(report, null, 2)}
 
-• Summary of Critical Design Issues
+• Brief Summary (Keep this section short)
+- Quick overview of critical violations
+- Key measurements that need attention
+${customGuidelines ? '- Compliance status with custom guidelines' : ''}
 
-Standard Manufacturing Requirements
-${customGuidelines ? '- Evaluate compliance with provided custom guidelines:' + customGuidelines : ''}
-- Identify critical violations and their impact on manufacturability
-- Quantify severity of issues found
+• Detailed Design Recommendations (Focus on this section)
+Provide specific, measurable improvements:
+- Wall thickness optimizations with exact target values
+- Support structure placement and modifications
+- Draft angle improvements
+- Custom guideline compliance solutions
+Include the reasoning behind each recommendation
 
-• Required Design Modifications
+• Manufacturing Strategy
+For ${process}:
+- Optimal part orientation and setup
+- Material selection guidelines
+- Tooling requirements and considerations
+- Quality control recommendations
+- Risk mitigation strategies
 
-List specific changes needed with:
-- Exact measurements and tolerances
-- Priority order for implementation
-- Estimated impact on manufacturability
-- Address any custom guideline violations
+• Implementation Roadmap
+- Prioritized list of changes
+- Expected impact of each modification
+- Testing and validation steps
+- Critical quality checkpoints
 
-• Process-Specific Guidelines
-
-Detailed ${process} recommendations including:
-- Material selection with specific grades
-- Tooling considerations and setup
-- Manufacturing process optimizations
-- Quality control points
-
-Use the provided data to give specific, actionable recommendations. Focus on practical next steps and improvements rather than just summarizing issues.`;
+Focus on actionable recommendations over analysis. Provide specific measurements, tolerances, and implementation steps.`;
 
     // For now return a simulated analysis - in production this would call OpenAI API
     const materialRecs = report.materialRecommendations;
 
-    let output = '• Summary of Critical Design Issues\n\n';
+    let output = '• Brief Summary\n\n';
 
-    // Add standard manufacturing analysis with detailed explanations
-    output += 'Standard Manufacturing Requirements:\n';
-    output += `Wall thickness analysis ${report.wallThickness.pass ? 'passed' : 'failed'} with ${report.wallThickness.issues.length} issues identified. `;
-    if (report.wallThickness.issues.length > 0) {
-      output += `Critical areas require attention to meet minimum thickness requirements. `;
-    }
-    output += `\nOverhang analysis ${report.overhangs.pass ? 'passed' : 'failed'} with ${report.overhangs.issues.length} issues found. `;
-    if (report.overhangs.issues.length > 0) {
-      output += `Unsupported features may cause manufacturing difficulties. `;
-    }
-    output += `\nHole size requirements ${report.holeSize.pass ? 'passed' : 'failed'}. `;
-    output += `\nDraft angle analysis ${report.draftAngles.pass ? 'passed' : 'failed'}.\n\n`;
+    // Concise summary of critical issues
+    output += `${report.wallThickness.pass ? 'PASSED' : 'FAILED'} wall thickness (${report.wallThickness.issues.length} issues). `;
+    output += `${report.overhangs.pass ? 'PASSED' : 'FAILED'} overhangs (${report.overhangs.issues.length} issues). `;
+    output += `${report.holeSize.pass ? 'PASSED' : 'FAILED'} hole sizes. `;
+    output += `${report.draftAngles.pass ? 'PASSED' : 'FAILED'} draft angles.\n\n`;
 
-    // Add custom guidelines compliance with impact analysis
     if (report.customGuidelines?.validations?.length) {
-      output += 'Custom Guidelines Compliance:\n';
+      output += 'Custom Guidelines: ';
       report.customGuidelines.validations.forEach(rule => {
-        output += `${rule.rule}: ${rule.pass ? 'Compliant' : 'Non-compliant'}. `;
-        if (!rule.pass) {
-          output += `This may impact manufacturing efficiency and part quality. `;
-        }
+        output += `${rule.rule} (${rule.pass ? 'PASSED' : 'FAILED'}), `;
       });
       output += '\n\n';
     }
 
-    // Add detailed measurements and analysis
-    output += 'Key Measurements and Analysis:\n';
-    output += `- Total wall thickness violations: ${report.wallThickness.issues.length}\n`;
-    output += `- Critical regions requiring reinforcement: ${Math.ceil(report.wallThickness.issues.length * 0.7)}\n`;
-    output += `- Total overhang concerns: ${report.overhangs.issues.length}\n`;
-    if (report.wallThickness.issues.length > 0) {
-      output += `- Average wall thickness deviation: ${(Math.random() * 0.5 + 0.5).toFixed(2)}mm from minimum requirement\n`;
-    }
-    output += '\n';
-
-    // Add comprehensive required modifications
-    output += '• Required Design Modifications\n\n';
+    // Detailed recommendations section
+    output += '• Detailed Design Recommendations\n\n';
 
     if (report.wallThickness.issues.length > 0) {
-      output += 'Wall Thickness Modifications:\n';
-      output += `- Increase wall thickness to minimum ${process === 'injection_molding' ? '2.5mm' : '1.2mm'} in critical areas\n`;
-      output += '- Add reinforcement ribs in high-stress regions\n';
-      output += '- Consider implementing uniform wall thickness where possible\n';
-      output += '- Review transition areas between different thicknesses\n';
-      output += '- Add fillets to sharp corners to improve material flow\n';
+      output += 'Wall Thickness Optimization:\n';
+      output += `- Target minimum thickness: ${process === 'injection_molding' ? '2.5mm' : '1.2mm'} in critical areas\n`;
+      output += '- Add reinforcement ribs (height = 3x wall thickness) at high-stress points\n';
+      output += '- Implement gradual thickness transitions (max 3:1 ratio)\n';
+      output += '- Add 1.5mm radius fillets at intersections\n';
+      output += '- Consider core-outs to maintain uniform wall thickness\n';
+      output += 'Reasoning: These changes will improve material flow, reduce sink marks, and prevent warpage.\n\n';
     }
 
     if (report.overhangs.issues.length > 0) {
-      output += '\nOverhang Modifications:\n';
-      output += '- Add support structures or gussets to unsupported features\n';
-      output += '- Redesign overhanging features to be self-supporting\n';
-      output += '- Consider changing part orientation to minimize overhangs\n';
-      output += '- Implement chamfers to reduce support requirements\n';
-      output += '- Review build orientation for optimal support structure placement\n';
+      output += 'Support Structure Optimization:\n';
+      output += '- Add 45° chamfers on overhanging features\n';
+      output += '- Implement self-supporting angles (>60° from horizontal)\n';
+      output += '- Add gussets (thickness = base wall thickness) for stability\n';
+      output += '- Optimize build orientation to minimize supports\n';
+      output += '- Consider splitting parts to eliminate critical overhangs\n';
+      output += 'Reasoning: These modifications will reduce support material, improve surface finish, and decrease post-processing time.\n\n';
     }
 
     if (!report.draftAngles.pass) {
-      output += '\nDraft Angle Improvements:\n';
-      output += '- Increase draft angles to minimum 3° for proper part removal\n';
-      output += '- Review parting line placement for optimal draft implementation\n';
-      output += '- Consider split line optimization for complex geometries\n';
-      output += '- Add additional draft to deep pocket features\n';
-    }
-    output += '\n';
-
-    // Add detailed process-specific guidelines
-    output += '• Process-Specific Guidelines\n\n';
-    output += `${process.charAt(0).toUpperCase() + process.slice(1)} Process Recommendations:\n`;
-    output += '- Optimize part orientation for:\n';
-    output += '  • Minimal support structures\n';
-    output += '  • Best surface finish on critical faces\n';
-    output += '  • Reduced post-processing requirements\n';
-    output += `- Maintain tolerances of ±0.127mm for critical features\n`;
-    output += '- Consider material flow patterns and optimize gate locations\n';
-    output += '- Ensure proper tooling access and review parting line placement\n';
-    output += '- Plan for appropriate surface finish requirements\n';
-    output += '- Consider thermal effects during manufacturing\n\n';
-
-    // Add comprehensive material recommendations
-    if (materialRecs) {
-      output += 'Material Selection Guidelines:\n';
-      if (materialRecs.recommended?.length) {
-        output += `- Recommended materials: ${materialRecs.recommended.join(', ')}\n`;
-        output += '- Selected for optimal strength-to-weight ratio and manufacturability\n';
-        output += '- Consider these material properties:\n';
-        output += '  • Thermal stability during processing\n';
-        output += '  • Mechanical properties for end-use\n';
-        output += '  • Cost-effectiveness for production volume\n';
-      }
-      if (materialRecs.notRecommended?.length) {
-        output += `- Materials to avoid: ${materialRecs.notRecommended.join(', ')}\n`;
-        output += '- These materials may cause manufacturing difficulties or compromise part quality\n';
-        output += '- Common issues with these materials include:\n';
-        output += '  • Poor flow characteristics\n';
-        output += '  • Excessive shrinkage\n';
-        output += '  • Thermal stability concerns\n';
-      }
+      output += 'Draft Angle Enhancements:\n';
+      output += '- Increase all draft angles to minimum 3° (5° recommended)\n';
+      output += '- Add 2° additional draft for textured surfaces\n';
+      output += '- Implement variable draft for deep features (1° per 25mm depth)\n';
+      output += '- Optimize parting line location to minimize draft requirements\n';
+      output += 'Reasoning: Proper draft ensures clean part ejection and reduces tool wear.\n\n';
     }
 
-    // Add prioritized next steps and additional considerations
-    output += '\nPrioritized Next Steps:\n';
-    output += '1. Critical Modifications (High Priority):\n';
-    output += '   - Address wall thickness violations in load-bearing areas\n';
-    output += '   - Implement required draft angle changes\n';
-    output += '   - Resolve any safety-critical features\n\n';
-    output += '2. Process Optimization (Medium Priority):\n';
-    output += '   - Optimize part orientation and support structures\n';
-    output += '   - Review and adjust material selection\n';
-    output += '   - Fine-tune process parameters\n\n';
-    output += '3. Quality Assurance (Ongoing):\n';
-    output += '   - Define critical inspection points\n';
-    output += '   - Establish measurement protocols\n';
-    output += '   - Consider prototype testing requirements\n';
+    // Manufacturing strategy with process-specific details
+    output += '• Manufacturing Strategy\n\n';
+    output += `Optimized ${process.charAt(0).toUpperCase() + process.slice(1)} Setup:\n`;
+    output += '1. Part Orientation\n';
+    output += '   - Primary functional surfaces parallel to mold face\n';
+    output += '   - Critical dimensions aligned with machine axis\n';
+    output += '   - Minimize visible parting lines on aesthetic surfaces\n\n';
+    output += '2. Material Selection\n';
+
+    if (materialRecs?.recommended?.length) {
+      output += `   Recommended: ${materialRecs.recommended.join(', ')}\n`;
+      output += '   Properties to verify:\n';
+      output += '   - Melt flow index (target: 12-15 g/10min)\n';
+      output += '   - Heat deflection temperature\n';
+      output += '   - Shrinkage rate compensation\n';
+    }
+
+    output += '\n3. Quality Control Points:\n';
+    output += '   - Wall thickness verification (±0.1mm tolerance)\n';
+    output += '   - Draft angle measurements at ejection points\n';
+    output += '   - Surface finish inspection (Ra 1.6μm target)\n';
+    output += '   - Dimensional stability after 24hr conditioning\n\n';
+
+    // Implementation roadmap
+    output += '• Implementation Roadmap\n\n';
+    output += '1. Immediate Actions (1-2 days):\n';
+    output += '   - Modify critical wall thickness violations\n';
+    output += '   - Update draft angles in core features\n';
+    output += '   - Implement basic support structure changes\n\n';
+
+    output += '2. Secondary Optimizations (3-5 days):\n';
+    output += '   - Refine material gating and flow paths\n';
+    output += '   - Optimize support structures\n';
+    output += '   - Enhance surface finish requirements\n\n';
+
+    output += '3. Validation Steps:\n';
+    output += '   - Simulation analysis of modified design\n';
+    output += '   - Prototype test run (minimum 5 parts)\n';
+    output += '   - CMM verification of critical dimensions\n';
+    output += '   - Functional testing of assembled components\n';
 
     return output;
   } catch (error) {
