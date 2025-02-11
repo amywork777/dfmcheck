@@ -278,7 +278,8 @@ export function ModelViewer({
 }: ModelViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scale, setScale] = useState(10); 
+  const [scale, setScale] = useState(5); // Changed default scale to 5
+
   useEffect(() => {
     if (!fileContent) {
       setError("No file content provided");
@@ -347,9 +348,9 @@ export function ModelViewer({
       <div className="flex items-center gap-4">
         <ZoomIn className="h-4 w-4 text-muted-foreground" />
         <Slider
-          defaultValue={[10]}
+          defaultValue={[5]}
           min={0.1}
-          max={1000}
+          max={50}
           step={0.5}
           value={[scale]}
           onValueChange={handleScaleChange}
