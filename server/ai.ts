@@ -34,19 +34,21 @@ export async function generateDesignInsights(
         ).join('\n')}`
       : 'No custom guidelines provided';
 
-    const prompt = `As a DFM expert, analyze this manufacturing report and provide a clear checklist of insights. Create a structured response following this format:
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide clear, actionable insights. Structure your response as follows:
 
-Summary of Critical Design Issues:
-□ List the primary concern highlighted in the manufacturing report
-□ Include specific numbers and measurements where possible
+Critical Design Issues:
+• Summarize the main issues identified in the analysis
+• Include specific measurements and quantities
+• Note any violations of custom guidelines
 
-Specific Recommendations for Improvement:
-□ List each recommendation as a separate checklist item
-□ Include quantitative targets when applicable
+Recommended Actions:
+• List specific improvements needed
+• Include target measurements where applicable
+• Address any custom guideline violations
 
-Manufacturing Process Considerations:
-□ Add process-specific guidelines
-□ Include tooling and setup recommendations
+Process Guidelines:
+• Add specific recommendations for ${process}
+• Include material and tooling considerations
 
 Manufacturing Process: ${process}
 
@@ -55,7 +57,7 @@ ${standardGuidelinesStatus}
 
 ${customGuidelinesStatus}
 
-Keep each checklist item focused and actionable. Use clear bullet points and maintain a consistent checklist format.`;
+Format the response as a clear, structured list with bullet points. Each point should be actionable and specific.`;
 
     console.log('Sending request to OpenAI...');
 
@@ -64,7 +66,7 @@ Keep each checklist item focused and actionable. Use clear bullet points and mai
       messages: [
         {
           role: "system",
-          content: "You are a DFM expert providing clear, structured manufacturing insights. Format your response as a checklist with □ bullets and keep recommendations actionable and specific."
+          content: "You are a DFM expert providing clear, structured manufacturing insights. Format your response as a bullet-pointed list with clear sections and actionable recommendations."
         },
         {
           role: "user",

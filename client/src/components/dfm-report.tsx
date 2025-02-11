@@ -188,6 +188,43 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
           </div>
         </Card>
       )}
+
+      {/* Custom Guidelines */}
+      {report.customGuidelines && (
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+            <Info className="h-5 w-5 text-blue-500 mt-1" />
+            <div className="flex-1">
+              <h3 className="font-medium mb-2">Custom Design Guidelines</h3>
+              <div className="space-y-4">
+                {report.customGuidelines.rules.map((rule, index) => {
+                  const validation = report.customGuidelines?.validations[index];
+                  return (
+                    <Alert
+                      key={index}
+                      variant={validation?.pass ? "default" : "destructive"}
+                    >
+                      <AlertTitle className="flex items-center gap-2">
+                        {validation?.pass ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        {rule}
+                      </AlertTitle>
+                      {validation?.details && (
+                        <AlertDescription className="mt-2">
+                          {validation.details}
+                        </AlertDescription>
+                      )}
+                    </Alert>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
