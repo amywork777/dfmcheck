@@ -8,8 +8,9 @@ import { manufacturingProcesses } from "@shared/schema";
 import { analyzeGeometry } from "@/lib/geometry";
 import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, X } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
+import { Button } from "@/components/ui/button";
 import type { DFMReport } from "@shared/schema";
 
 export default function Home() {
@@ -19,6 +20,12 @@ export default function Home() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<DFMReport | null>(null);
+
+  const clearUpload = useCallback(() => {
+    setSelectedFile(null);
+    setFileContent(null);
+    setAnalysisReport(null);
+  }, []);
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ file, process }: { file: File; process: typeof manufacturingProcesses[number] }) => {
@@ -141,19 +148,17 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto py-12">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <img src="/taiyaki.png" alt="Taiyaki Logo" className="h-8" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              DFM Analysis Tool
-            </h1>
-          </div>
-          <p className="text-muted-foreground mt-2">
-            Upload your 3D model for instant manufacturability feedback
-          </p>
-        </div>
-
         <div className="space-y-8">
+          <div className="text-center">
+            <img src="/taiyaki.png" alt="Taiyaki Logo" className="h-12 mx-auto mb-8" />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-4">
+              DFM Agent
+            </h1>
+            <p className="text-muted-foreground">
+              Upload your 3D model for instant manufacturability feedback
+            </p>
+          </div>
+
           <FileUpload
             onFileSelected={handleFileSelected}
             onFileUploaded={setSelectedFile}
@@ -163,7 +168,16 @@ export default function Home() {
 
           {fileContent && (
             <Card className="p-6">
-              <h3 className="font-medium mb-4">3D Preview</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium">3D Preview</h3>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={clearUpload}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
               <ModelViewer 
                 fileContent={fileContent} 
                 analysisReport={analysisReport}
