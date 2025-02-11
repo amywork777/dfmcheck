@@ -1,4 +1,4 @@
-import type { DFMReport } from "@shared/schema";
+import { DFMReport } from "@shared/schema";
 import * as THREE from 'three';
 
 const MIN_WALL_THICKNESS = {
@@ -6,6 +6,14 @@ const MIN_WALL_THICKNESS = {
   'injection_molding': 1.0, // mm
   'cnc_machining': 1.2, // mm
   'sheet_metal': 0.5 // mm
+} as const;
+
+// Include materials directly in geometry.ts to avoid circular imports
+const PROCESS_MATERIALS = {
+  '3d_printing': ['PLA', 'PETG', 'ABS', 'TPU', 'Nylon'],
+  'cnc_machining': ['Aluminum 6061', 'Brass', 'Steel 1018', 'Stainless Steel 304', 'PEEK'],
+  'injection_molding': ['ABS', 'Polypropylene', 'Polyethylene', 'Polycarbonate', 'Nylon'],
+  'sheet_metal': ['Aluminum', 'Steel', 'Stainless Steel', 'Copper', 'Brass']
 } as const;
 
 const MAX_OVERHANG_ANGLE = 45; // degrees
@@ -286,6 +294,152 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   return { issues, pass };
 }
 
+const BASE_SETUP_COSTS = {
+  '3d_printing': 50,      // USD
+  'injection_molding': 5000,
+  'cnc_machining': 250,
+  'sheet_metal': 200
+} as const;
+
+const LABOR_RATES = {
+  '3d_printing': 45,      // USD per hour
+  'injection_molding': 85,
+  'cnc_machining': 95,
+  'sheet_metal': 75
+} as const;
+
+const MATERIAL_COSTS = {
+  // 3D Printing materials (USD per kg)
+  'PLA': { cost: 25, minOrder: 1, leadTime: '2-3 days' },
+  'PETG': { cost: 30, minOrder: 1, leadTime: '2-3 days' },
+  'ABS': { cost: 28, minOrder: 1, leadTime: '2-3 days' },
+  'TPU': { cost: 45, minOrder: 1, leadTime: '3-4 days' },
+  'Nylon': { cost: 50, minOrder: 1, leadTime: '3-4 days' },
+
+  // CNC materials (USD per kg)
+  'Aluminum 6061': { cost: 15, minOrder: 5, leadTime: '5-7 days' },
+  'Brass': { cost: 25, minOrder: 5, leadTime: '5-7 days' },
+  'Steel 1018': { cost: 10, minOrder: 5, leadTime: '5-7 days' },
+  'Stainless Steel 304': { cost: 20, minOrder: 5, leadTime: '7-10 days' },
+  'PEEK': { cost: 150, minOrder: 1, leadTime: '7-10 days' },
+
+  // Sheet metal (USD per sheet)
+  'Aluminum': { cost: 100, minOrder: 1, leadTime: '3-5 days' },
+  'Steel': { cost: 80, minOrder: 1, leadTime: '3-5 days' },
+  'Stainless Steel': { cost: 150, minOrder: 1, leadTime: '5-7 days' },
+  'Copper': { cost: 200, minOrder: 1, leadTime: '5-7 days' },
+  'Brass Sheet': { cost: 180, minOrder: 1, leadTime: '5-7 days' }
+} as const;
+
+interface CostEstimate {
+  materialCost: number;
+  laborCost: number;
+  setupCost: number;
+  totalCost: number;
+  volumeDiscounts: { quantity: number; discountPercentage: number; pricePerUnit: number }[];
+}
+
+
+function estimateVolume(triangles: Float32Array): number {
+  let volume = 0;
+  for (let i = 0; i < triangles.length; i += 9) {
+    const v1 = new THREE.Vector3(triangles[i], triangles[i + 1], triangles[i + 2]);
+    const v2 = new THREE.Vector3(triangles[i + 3], triangles[i + 4], triangles[i + 5]);
+    const v3 = new THREE.Vector3(triangles[i + 6], triangles[i + 7], triangles[i + 8]);
+
+    // Calculate signed volume of tetrahedron formed by triangle and origin
+    const signedVolume = v1.dot(v2.cross(v3)) / 6.0;
+    volume += Math.abs(signedVolume);
+  }
+  return volume; // in cubic millimeters
+}
+
+function calculateCostEstimate(
+  volume: number,
+  process: ProcessType,
+  complexity: number
+): CostEstimate {
+  const setupCost = BASE_SETUP_COSTS[process];
+  const laborRate = LABOR_RATES[process];
+
+  // Estimate processing time based on volume and complexity
+  const processingHours = (volume / 1000) * complexity * 0.5;
+  const laborCost = processingHours * laborRate;
+
+  // Estimate material cost (assuming average material cost for the process)
+  const materialCostPerUnit = 50; // USD per kg
+  const materialWeight = (volume / 1000000) * 1.2; // Convert mm³ to kg (assuming average density)
+  const materialCost = materialWeight * materialCostPerUnit;
+
+  const totalCost = setupCost + laborCost + materialCost;
+
+  // Calculate volume discounts
+  const volumeDiscounts = [
+    { quantity: 10, discountPercentage: 10, pricePerUnit: totalCost * 0.9 },
+    { quantity: 50, discountPercentage: 20, pricePerUnit: totalCost * 0.8 },
+    { quantity: 100, discountPercentage: 30, pricePerUnit: totalCost * 0.7 },
+    { quantity: 500, discountPercentage: 40, pricePerUnit: totalCost * 0.6 }
+  ];
+
+  return {
+    materialCost,
+    laborCost,
+    setupCost,
+    totalCost,
+    volumeDiscounts
+  };
+}
+
+function generateMaterialRecommendations(
+  process: ProcessType,
+  wallThicknessIssues: boolean,
+  overhangIssues: boolean,
+  complexity: number
+): {
+  recommended: string[];
+  notRecommended: string[];
+  reasoning: string;
+} {
+  const availableMaterials = PROCESS_MATERIALS[process];
+  const recommended: string[] = [];
+  const notRecommended: string[] = [];
+  let reasoning = '';
+
+  switch (process) {
+    case '3d_printing':
+      if (overhangIssues) {
+        recommended.push('PLA', 'PETG');
+        notRecommended.push('ABS', 'Nylon');
+        reasoning = 'Due to significant overhangs, materials with better bridging properties are recommended.';
+      } else if (wallThicknessIssues) {
+        recommended.push('PETG', 'ABS');
+        notRecommended.push('TPU', 'PLA');
+        reasoning = 'Thin walls require materials with higher strength and rigidity.';
+      } else {
+        recommended.push(...availableMaterials);
+        reasoning = 'No significant geometric constraints, all materials are suitable.';
+      }
+      break;
+
+    case 'cnc_machining':
+      if (wallThicknessIssues) {
+        recommended.push('Aluminum 6061', 'Steel 1018');
+        notRecommended.push('Brass', 'PEEK');
+        reasoning = 'Thin walls require materials with high machinability and strength.';
+      } else {
+        recommended.push(...availableMaterials);
+        reasoning = 'Standard machining requirements, all materials are suitable.';
+      }
+      break;
+  }
+
+  return {
+    recommended,
+    notRecommended,
+    reasoning
+  };
+}
+
 export function analyzeGeometry(fileContent: string, process: ProcessType): DFMReport {
   if (!fileContent) {
     throw new Error("No file content provided for analysis");
@@ -309,17 +463,30 @@ export function analyzeGeometry(fileContent: string, process: ProcessType): DFMR
     const wallThickness = analyzeWallThickness(triangles, process);
     const overhangs = analyzeOverhangs(triangles, normals);
 
-    console.log('Analysis complete:', {
-      wallThicknessIssues: wallThickness.issues.length,
-      overhangIssues: overhangs.issues.length,
-      totalTime: Date.now() - startTime,
-    });
+    // Calculate volume and complexity for cost estimation
+    const volume = estimateVolume(triangles);
+    const complexity = 1 +
+      (wallThickness.issues.length * 0.1) +
+      (overhangs.issues.length * 0.15);
+
+    // Generate material recommendations
+    const materialRecommendations = generateMaterialRecommendations(
+      process,
+      wallThickness.issues.length > 0,
+      overhangs.issues.length > 0,
+      complexity
+    );
+
+    // Calculate cost estimate
+    const costEstimate = calculateCostEstimate(volume, process, complexity);
 
     return {
       wallThickness,
       overhangs,
       holeSize: { issues: [], pass: true },
-      draftAngles: { issues: [], pass: true }
+      draftAngles: { issues: [], pass: true },
+      materialRecommendations,
+      costEstimate
     };
   } catch (error) {
     console.error('Geometry analysis error:', error);
