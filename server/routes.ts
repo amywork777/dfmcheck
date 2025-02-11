@@ -3,11 +3,26 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertAnalysisSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+import { generateDesignInsights } from "./ai";
 
 export function registerRoutes(app: Express) {
   app.post("/api/analyze", async (req, res) => {
     try {
       const analysis = insertAnalysisSchema.parse(req.body);
+
+      // Generate AI insights considering both standard and custom guidelines
+      const aiInsights = await generateDesignInsights(
+        analysis.report,
+        analysis.process,
+        analysis.designGuidelines
+      );
+
+      // Add AI insights to the report
+      analysis.report = {
+        ...analysis.report,
+        aiInsights
+      };
+
       const result = await storage.createAnalysis(analysis);
       console.log('Analysis created:', result.id);
       res.json(result);

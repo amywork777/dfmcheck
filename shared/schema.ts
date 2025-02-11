@@ -47,6 +47,7 @@ export type DFMReport = {
       details?: string;
     }>;
   };
+  aiInsights?: string;
 };
 
 export const analyses = pgTable("analyses", {
