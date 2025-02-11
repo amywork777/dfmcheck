@@ -22,9 +22,10 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-500 mt-1" />
           <div>
-            <h3 className="font-medium mb-2">Custom Design Guidelines</h3>
+            <h3 className="font-medium mb-2">Custom Design Guidelines (Optional)</h3>
             <p className="text-sm text-muted-foreground">
-              Add your specific design requirements and manufacturing constraints.
+              Optionally add your specific design requirements and manufacturing constraints. 
+              Leave empty to use standard manufacturing guidelines.
             </p>
           </div>
         </div>
@@ -33,7 +34,7 @@ export function GuidelinesUpload({ onGuidelinesChange }: GuidelinesUploadProps) 
           <Textarea
             value={guidelines}
             onChange={(e) => handleGuidelinesChange(e.target.value)}
-            placeholder="Example guidelines:
+            placeholder="Optional guidelines examples:
 - Minimum wall thickness should be 2mm
 - Maximum overhang angle 30 degrees
 - All holes must be larger than 3mm
