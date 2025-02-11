@@ -77,18 +77,23 @@ export default function Report() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto py-12">
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/">
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
-            <p className="text-muted-foreground">
-              Analysis results for <span className="font-medium">{analysis.fileName}</span>
-            </p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="outline" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold mb-2">DFM Analysis Report</h1>
+              <p className="text-muted-foreground">
+                Analysis results for <span className="font-medium">{analysis.fileName}</span>
+              </p>
+            </div>
           </div>
+          <Link href="/">
+            <img src="/taiyaki.png" alt="Taiyaki Logo" className="h-8" />
+          </Link>
         </div>
 
         <div className="space-y-8">
