@@ -50,6 +50,24 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/insights", async (req, res) => {
+    try {
+      const { report, process } = req.body;
+
+      if (!report || !process) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const insights = await generateDesignInsights(report, process);
+      res.send(insights);
+    } catch (error) {
+      console.error('Failed to generate insights:', error);
+      res.status(500).json({ 
+        error: "Failed to generate AI insights. Please ensure OpenAI API key is configured correctly." 
+      });
+    }
+  });
+
   app.get("/api/analysis/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
