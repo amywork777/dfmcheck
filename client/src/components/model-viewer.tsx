@@ -156,8 +156,6 @@ function Model({ geometry, analysisReport }: ModelProps) {
     const totalTriangles = positionAttr.count / 3;
     const samplingRate = Math.max(5, Math.ceil(totalTriangles / 1000));
 
-    console.log('Processing visualization with sampling rate:', samplingRate);
-
     let processedPoints = 0;
     const maxPoints = 50; // Limit visualization markers for performance
 
@@ -217,7 +215,6 @@ function Model({ geometry, analysisReport }: ModelProps) {
       }
     }
 
-    console.log('Visualization markers:', processedPoints);
     setIssuePoints(points);
     setProgress(100);
   }, [geometry, analysisReport]);
@@ -298,32 +295,10 @@ export function ModelViewer({
         const size = new THREE.Vector3();
         threeGeometry.boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
-        const minDim = Math.min(size.x, size.y, size.z);
 
-        // Smart scaling:
-        // - For very small models (< 1mm), scale up significantly
-        // - For normal sized models (1mm - 1000mm), use standard scaling
-        // - For very large models (> 1000mm), scale down more aggressively
-        let scale = 2 / maxDim; // default scale
-
-        if (maxDim < 1) {
-          // Small model, scale up more aggressively
-          scale = 2 / Math.pow(maxDim, 0.8);
-        } else if (maxDim > 1000) {
-          // Large model, scale down more conservatively
-          scale = 2 / Math.pow(maxDim, 1.2);
-        }
-
-        // Apply scaling while preserving proportions
+        // Use standard scaling
+        const scale = 2 / maxDim;
         threeGeometry.scale(scale, scale, scale);
-
-        // Log the scaling information for debugging
-        console.log('Model dimensions:', {
-          original: { x: size.x, y: size.y, z: size.z },
-          maxDim,
-          minDim,
-          appliedScale: scale
-        });
       }
 
       setGeometry(threeGeometry);
