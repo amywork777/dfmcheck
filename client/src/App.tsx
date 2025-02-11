@@ -5,13 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Report from "@/pages/report";
-import { DesignAnalyzer } from "@/components/design-analyzer";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/dfm-analyzer" component={DesignAnalyzer} />
       <Route path="/report/:id" component={Report} />
       <Route component={NotFound} />
     </Switch>
