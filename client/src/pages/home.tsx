@@ -146,12 +146,12 @@ export default function Home() {
   }, [toast]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-4xl mx-auto py-12">
+    <div className="min-h-screen">
+      <div className="container max-w-4xl mx-auto py-16 px-4">
         <div className="space-y-8">
           <div className="text-center">
             <img src="/taiyaki.png" alt="Taiyaki Logo" className="h-12 mx-auto mb-8" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-6 pb-1">
               DFM Agent
             </h1>
             <p className="text-muted-foreground">
@@ -170,16 +170,16 @@ export default function Home() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium">3D Preview</h3>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={clearUpload}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <ModelViewer 
-                fileContent={fileContent} 
+              <ModelViewer
+                fileContent={fileContent}
                 analysisReport={analysisReport}
               />
             </Card>

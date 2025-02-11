@@ -9,5 +9,27 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    background: linear-gradient(135deg, 
+      rgb(115, 210, 222) 0%,
+      rgb(245, 124, 0) 25%,
+      rgb(253, 184, 39) 50%,
+      rgb(255, 188, 209) 75%,
+      rgb(27, 38, 59) 100%
+    );
+    background-attachment: fixed;
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+  }
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }
