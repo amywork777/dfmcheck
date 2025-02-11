@@ -8,10 +8,10 @@ export async function generateDesignInsights(
   try {
     const customGuidelines = designGuidelines ? `\nCustom Guidelines:\n${designGuidelines}` : '';
 
-    const prompt = `As a DFM expert, analyze this manufacturing report and provide detailed geometric modifications with clear explanations. Structure your response as follows:
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide detailed geometric modifications that address both standard requirements and custom guidelines. Structure your response as follows:
 
 Brief Status (2-3 lines maximum):
-- Quick overview of critical violations
+- Quick overview of critical violations and guideline compliance
 - Most urgent geometry changes needed
 
 Geometric Modifications (Focus here):
@@ -20,20 +20,26 @@ For each issue, provide:
    - Specific dimensions and tolerances
    - Location of modifications
    - Step-by-step modification instructions
+   - How changes align with custom guidelines
 2. Why this change is necessary
    - Manufacturing implications
    - Performance impact
    - Cost considerations
+   - Compliance with custom requirements
 3. Implementation guidance
    - CAD modification approach
    - Order of operations
    - Verification steps
+   - Guidelines compliance verification
 
 Process: ${process}
 Custom Guidelines: ${customGuidelines || 'None provided'}
 Full Report: ${JSON.stringify(report, null, 2)}
 
-Focus on specific, actionable geometry changes. For each modification, explain both HOW to make the change and WHY it's necessary.`;
+Focus on specific, actionable geometry changes. For each modification:
+- Explain both HOW to make the change and WHY it's necessary
+- Detail how the change addresses both manufacturing requirements and custom guidelines
+- Provide specific measurements and tolerances that satisfy all requirements`;
 
     // For now return a simulated analysis - in production this would call OpenAI API
     const materialRecs = report.materialRecommendations;
@@ -43,6 +49,15 @@ Focus on specific, actionable geometry changes. For each modification, explain b
     // Very concise summary
     output += `${report.wallThickness.pass ? 'PASSED' : 'FAILED'} wall thickness (${report.wallThickness.issues.length} issues). `;
     output += `${report.overhangs.pass ? 'PASSED' : 'FAILED'} overhangs (${report.overhangs.issues.length} issues).\n\n`;
+
+    // Add custom guidelines summary if provided
+    if (report.customGuidelines?.validations?.length) {
+      output += 'Custom Guidelines Status: ';
+      report.customGuidelines.validations.forEach(rule => {
+        output += `${rule.rule} (${rule.pass ? 'PASSED' : 'FAILED'}). `;
+      });
+      output += '\n\n';
+    }
 
     // Detailed geometric modifications
     output += '• Required Geometric Changes\n\n';
@@ -62,7 +77,11 @@ Focus on specific, actionable geometry changes. For each modification, explain b
       output += '\nWhy These Changes:\n';
       output += '- Prevents warping and sink marks during manufacturing\n';
       output += '- Improves material flow and reduces internal stresses\n';
-      output += '- Ensures structural integrity while minimizing material usage\n\n';
+      output += '- Ensures structural integrity while minimizing material usage\n';
+      if (designGuidelines) {
+        output += '- Aligns with custom guidelines for structural requirements\n';
+      }
+      output += '\n';
     }
 
     if (report.overhangs.issues.length > 0) {
@@ -80,7 +99,11 @@ Focus on specific, actionable geometry changes. For each modification, explain b
       output += '\nWhy These Changes:\n';
       output += '- Eliminates need for temporary supports\n';
       output += '- Reduces post-processing time and cost\n';
-      output += '- Improves surface quality of final part\n\n';
+      output += '- Improves surface quality of final part\n';
+      if (designGuidelines) {
+        output += '- Ensures compliance with custom overhang requirements\n';
+      }
+      output += '\n';
     }
 
     if (!report.draftAngles.pass) {
@@ -98,14 +121,19 @@ Focus on specific, actionable geometry changes. For each modification, explain b
       output += '\nWhy These Changes:\n';
       output += '- Ensures clean part ejection from mold\n';
       output += '- Reduces tool wear and maintenance costs\n';
-      output += '- Improves surface finish quality\n\n';
+      output += '- Improves surface finish quality\n';
+      if (designGuidelines) {
+        output += '- Meets custom requirements for draft angles\n';
+      }
+      output += '\n';
     }
 
     output += '• Implementation Steps\n\n';
     output += '1. Start with Critical Features:\n';
     output += '   - Open CAD model and create backup\n';
     output += '   - Identify thin walls using thickness analysis\n';
-    output += '   - Begin with most severe violations\n\n';
+    output += '   - Begin with most severe violations\n';
+    output += '   - Review custom guidelines compliance\n\n';
 
     output += '2. Modification Order:\n';
     output += '   - First: Adjust base wall thicknesses\n';
@@ -117,6 +145,7 @@ Focus on specific, actionable geometry changes. For each modification, explain b
     output += '   - Rerun thickness analysis after each major change\n';
     output += '   - Check for introduced interference\n';
     output += '   - Validate changes meet functional requirements\n';
+    output += '   - Verify compliance with all custom guidelines\n';
     output += '   - Confirm manufacturability with process simulation\n';
 
     return output;
