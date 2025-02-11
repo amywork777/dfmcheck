@@ -310,13 +310,13 @@ export function ModelViewer({
         // Calculate a scale that will make the model fit nicely in view
         // Using the camera's FOV and position to determine ideal scale
         const fov = 75; // matches the camera FOV in Canvas
-        const distance = 4; // reduced camera distance for closer view
+        const distance = 2.5; // reduced camera distance for closer view
         const fovRadians = (fov * Math.PI) / 180;
         const idealSize = 2 * Math.tan(fovRadians / 2) * distance;
 
-        // Calculate scale with a minimum value to ensure visibility
+        // Calculate scale with a higher minimum value to ensure visibility
         let scale = idealSize / maxDim;
-        const minScale = 2.0; // minimum scale factor for very small models
+        const minScale = 4.0; // increased minimum scale for very small models
         scale = Math.max(scale, minScale);
 
         // Apply the calculated scale
@@ -353,7 +353,7 @@ export function ModelViewer({
         <Suspense fallback={<LoadingFallback />}>
           <Canvas
             camera={{
-              position: [1.5, 1.5, 4], // Moved camera closer
+              position: [1, 1, 2.5], // Moved camera even closer
               fov: 75,
               near: 0.1,
               far: 1000,
