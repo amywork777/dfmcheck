@@ -405,16 +405,28 @@ export async function analyzeGeometry(fileContent: string, process: ProcessType)
     let triangles: Float32Array;
     let normals: Float32Array;
 
-    if (isSTEPFile(bytes.buffer)) {
-      console.log('Detected STEP file format');
-      const stepResult = await parseSTEPFile(bytes.buffer);
-      triangles = stepResult.triangles;
-      normals = stepResult.normals;
-    } else {
-      console.log('Detected STL file format');
-      const stlResult = parseSTL(bytes.buffer);
-      triangles = stlResult.triangles;
-      normals = stlResult.normals;
+    const isStep = isSTEPFile(bytes.buffer);
+    console.log('Detected file format:', isStep ? 'STEP' : 'STL');
+
+    try {
+      if (isStep) {
+        const stepResult = await parseSTEPFile(bytes.buffer);
+        triangles = stepResult.triangles;
+        normals = stepResult.normals;
+      } else {
+        const stlResult = parseSTL(bytes.buffer);
+        triangles = stlResult.triangles;
+        normals = stlResult.normals;
+      }
+    } catch (error) {
+      if (isStep) {
+        throw new Error('Failed to parse STEP file. The file might be corrupted or in an unsupported format.');
+      } else {
+        if (error instanceof Error && error.message.includes('Triangle count')) {
+          throw new Error('The STL file appears to be corrupted. Please try re-exporting it from your CAD software.');
+        }
+        throw error;
+      }
     }
 
     console.log('Successfully parsed geometry');
