@@ -72,8 +72,11 @@ export function registerRoutes(app: Express) {
 
       try {
         // Dynamically import pdf-parse
-        const pdfParse = await import('pdf-parse');
-        const data = await pdfParse.default(req.file.buffer);
+        const pdfParse = await import('pdf-parse/lib/pdf-parse.js');
+        const data = await pdfParse.default(req.file.buffer, {
+          max: 0, // No page limit
+          version: 'v2.0.0'
+        });
 
         // Extract text and format it as guidelines
         const text = data.text
