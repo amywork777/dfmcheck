@@ -28,9 +28,9 @@ export function AISummary({ report, process }: AISummaryProps) {
         if (aiSummary) {
           // Split the summary into insights and create objects with checked state
           const points = aiSummary
-            .split(/[•\-\*]\s+/)
+            .split(/\*\*\s+/)
             .filter(point => point.trim().length > 0)
-            .map(text => ({ text, checked: false }));
+            .map(text => ({ text: text.trim(), checked: false }));
           setInsights(points.length > 1 ? points : [{ text: aiSummary, checked: false }]);
         }
       } catch (err) {
