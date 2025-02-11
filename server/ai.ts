@@ -34,22 +34,11 @@ export async function generateDesignInsights(
         ).join('\n')}`
       : 'No custom guidelines provided';
 
-    const prompt = `As a DFM expert, analyze this manufacturing report and provide insights focused on both standard requirements and custom guidelines. Structure your response as follows:
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide insights focused on both standard requirements and custom guidelines. Output your analysis in plain text with each recommendation on a single line (no extra formatting). Your response should include three sections:
 
-• Summary of Critical Design Issues
-  - Analyze standard manufacturing requirements
-  - Evaluate custom guideline compliance
-  - Highlight key measurements and quantities
-
-• Required Design Modifications
-  - List specific changes needed
-  - Include target measurements
-  - Address custom guideline violations
-
-• Process-Specific Guidelines
-  - ${process} specific recommendations
-  - Material selection insights
-  - Tooling considerations
+Summary of Critical Design Issues – include one-line statements for standard manufacturing requirements, custom guideline compliance, and key measurements/quantities.
+Required Design Modifications – include one-line recommendations for specific changes needed, target measurements, and addressing custom guideline violations.
+Process-Specific Guidelines – include one-line recommendations for ${process} specific guidance, material selection insights, and tooling considerations.
 
 Manufacturing Process: ${process}
 
