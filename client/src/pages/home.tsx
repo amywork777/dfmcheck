@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, Loader2, X } from "lucide-react";
 import { ModelViewer } from "@/components/model-viewer";
 import { Button } from "@/components/ui/button";
+import { SiteHeader } from "@/components/site-header";
 import type { DFMReport } from "@shared/schema";
 
 export default function Home() {
@@ -149,15 +150,10 @@ export default function Home() {
     <div className="min-h-screen">
       <div className="container max-w-4xl mx-auto py-16 px-4">
         <div className="space-y-8">
-          <div className="text-center">
-            <img src="/taiyaki.png" alt="Taiyaki Logo" className="h-12 mx-auto mb-8" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-6 pb-1">
-              DFM Agent
-            </h1>
-            <p className="text-muted-foreground">
-              Upload your 3D model for instant manufacturability feedback
-            </p>
-          </div>
+          <SiteHeader />
+          <p className="text-center text-muted-foreground">
+            Upload your 3D model for instant manufacturability feedback
+          </p>
 
           <FileUpload
             onFileSelected={handleFileSelected}
