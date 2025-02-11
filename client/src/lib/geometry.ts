@@ -92,8 +92,19 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     const triangleCount = view.getUint32(80, true);
     const expectedSize = 84 + (triangleCount * 50);
 
-    if (triangleCount <= 0 || triangleCount > 5000000 || data.byteLength !== expectedSize) {
-      throw new Error(`Invalid binary STL file: Expected size ${expectedSize}, got ${data.byteLength}`);
+    console.log('File size:', data.byteLength, 'bytes');
+    console.log('Reported triangle count:', triangleCount);
+    console.log('Expected size:', expectedSize, 'bytes');
+
+    // More lenient size validation
+    if (triangleCount <= 0 || triangleCount > 5000000) {
+      throw new Error("Invalid STL file: Triangle count out of reasonable range");
+    }
+
+    // Allow for some padding bytes at the end of the file
+    const sizeDifference = Math.abs(data.byteLength - expectedSize);
+    if (sizeDifference > 512) { // Allow up to 512 bytes of difference
+      throw new Error(`Invalid STL file structure: Size mismatch too large (${sizeDifference} bytes)`);
     }
 
     console.log('Processing STL with', triangleCount, 'triangles');
@@ -105,6 +116,12 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     for (let i = 0; i < triangleCount; i++) {
       if (Date.now() - startTime > MAX_PROCESSING_TIME) {
         throw new Error("STL parsing timeout: File too complex");
+      }
+
+      // Check if we've reached the end of the file
+      if (offset + 50 > data.byteLength) {
+        console.warn(`Reached end of file at triangle ${i}/${triangleCount}`);
+        break;
       }
 
       // Read normal
@@ -127,6 +144,9 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     return { triangles, normals };
   } catch (error) {
     console.error('STL parsing error:', error);
+    if (error instanceof Error && error.message.includes('Triangle count')) {
+      throw new Error('The STL file appears to be corrupted. Please try re-exporting it from your CAD software.');
+    }
     throw error;
   }
 }
