@@ -41,7 +41,7 @@ export function AISummary({ report, process }: AISummaryProps) {
 
   if (error) {
     return (
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
+      <Card className="p-6">
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-yellow-500 mt-1" />
           <div className="flex-1">
@@ -58,7 +58,7 @@ export function AISummary({ report, process }: AISummaryProps) {
   }
 
   return (
-    <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
+    <Card className="p-6">
       <div className="flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-blue-500 mt-1" />
         <div className="flex-1">
