@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { generateDFMSummary } from "@/lib/ai";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { DFMReport } from "@shared/schema";
 
 interface AISummaryProps {
@@ -24,18 +25,24 @@ export function AISummary({ report, process }: AISummaryProps) {
     async function fetchSummary() {
       try {
         setLoading(true);
+        setError(null);
         const aiSummary = await generateDFMSummary(report, process);
-        if (aiSummary) {
-          // Split the summary into insights and create objects with checked state
-          const points = aiSummary
-            .split(/\*\*/)
-            .filter(point => point.trim().length > 0)
-            .map(text => ({ text: text.trim(), checked: false }));
-          setInsights(points.length > 1 ? points : [{ text: aiSummary, checked: false }]);
+
+        if (!aiSummary) {
+          setError("Unable to generate AI insights. Please ensure OpenAI API key is configured.");
+          return;
         }
-      } catch (err) {
-        setError("Failed to generate AI summary");
-        console.error(err);
+
+        // Split the summary into insights and create objects with checked state
+        const points = aiSummary
+          .split(/\*\*/)
+          .filter(point => point.trim().length > 0)
+          .map(text => ({ text: text.trim(), checked: false }));
+
+        setInsights(points.length > 1 ? points : [{ text: aiSummary, checked: false }]);
+      } catch (err: any) {
+        setError(err?.message || "Failed to generate AI summary");
+        console.error('AI Summary Error:', err);
       } finally {
         setLoading(false);
       }
@@ -53,7 +60,19 @@ export function AISummary({ report, process }: AISummaryProps) {
   };
 
   if (error) {
-    return null;
+    return (
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-500 mt-1" />
+          <div className="flex-1">
+            <h3 className="font-medium mb-3">AI Design Insights</h3>
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </div>
+        </div>
+      </Card>
+    );
   }
 
   return (
@@ -79,7 +98,7 @@ export function AISummary({ report, process }: AISummaryProps) {
                   />
                   <label
                     htmlFor={`insight-${index}`}
-                    className={`text-sm ${insight.checked ? 'text-muted-foreground line-through' : 'text-foreground'} cursor-pointer flex-1`}
+                    className={`text-sm font-medium ${insight.checked ? 'text-muted-foreground line-through' : 'text-foreground'} cursor-pointer flex-1`}
                   >
                     {insight.text}
                   </label>

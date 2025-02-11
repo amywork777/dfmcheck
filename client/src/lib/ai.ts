@@ -42,6 +42,14 @@ Focus areas:
     return response.choices[0].message.content;
   } catch (error) {
     console.error("Failed to generate AI summary:", error);
-    return null;
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        throw new Error('OpenAI API key is missing or invalid. Please check your configuration.');
+      }
+      if (error.message.includes('insufficient_quota')) {
+        throw new Error('OpenAI API quota exceeded. Please check your API key configuration.');
+      }
+    }
+    throw error;
   }
 }
