@@ -30,6 +30,13 @@ interface DFMReportProps {
   process: string;
 }
 
+const formatProcessName = (process: string) => {
+  return process
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export function DFMReport({ report, fileName, process }: DFMReportProps) {
   const sections = [
     { key: 'wallThickness', title: 'Wall Thickness', icon: Ruler },
@@ -38,7 +45,7 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
     { key: 'draftAngles', title: 'Draft Angles' }
   ];
 
-  const processName = process.replace(/_/g, ' ').toUpperCase();
+  const processName = formatProcessName(process);
   const minThickness = MIN_WALL_THICKNESS[process as keyof typeof MIN_WALL_THICKNESS];
 
   return (

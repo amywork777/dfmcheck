@@ -15,6 +15,13 @@ interface ProcessSelectProps {
 export function ProcessSelect({ processes, onAnalyze, isLoading, disabled }: ProcessSelectProps) {
   const [selectedProcess, setSelectedProcess] = useState<typeof manufacturingProcesses[number] | "">("");
 
+  const formatProcessName = (process: string) => {
+    return process
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   return (
     <Card className="p-6">
       <div className="space-y-4">
@@ -27,7 +34,7 @@ export function ProcessSelect({ processes, onAnalyze, isLoading, disabled }: Pro
           <SelectContent>
             {processes.map((process) => (
               <SelectItem key={process} value={process}>
-                {process.replace("_", " ").toUpperCase()}
+                {formatProcessName(process)}
               </SelectItem>
             ))}
           </SelectContent>
