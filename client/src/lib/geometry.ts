@@ -1,7 +1,5 @@
 import type { DFMReport } from "@shared/schema";
 import * as THREE from 'three';
-import * as JSCADio from '@jscad/io';
-import * as JSCADmodeling from '@jscad/modeling';
 
 const MIN_WALL_THICKNESS = {
   '3d_printing': 0.8, // mm
@@ -93,19 +91,8 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     const triangleCount = view.getUint32(80, true);
     const expectedSize = 84 + (triangleCount * 50);
 
-    console.log('File size:', data.byteLength, 'bytes');
-    console.log('Reported triangle count:', triangleCount);
-    console.log('Expected size:', expectedSize, 'bytes');
-
-    // More lenient size validation
-    if (triangleCount <= 0 || triangleCount > 5000000) {
-      throw new Error("Invalid STL file: Triangle count out of reasonable range");
-    }
-
-    // Allow for some padding bytes at the end of the file
-    const sizeDifference = Math.abs(data.byteLength - expectedSize);
-    if (sizeDifference > 512) { // Allow up to 512 bytes of difference
-      throw new Error(`Invalid STL file structure: Size mismatch too large (${sizeDifference} bytes)`);
+    if (triangleCount <= 0 || triangleCount > 5000000 || data.byteLength !== expectedSize) {
+      throw new Error(`Invalid binary STL file: Expected size ${expectedSize}, got ${data.byteLength}`);
     }
 
     console.log('Processing STL with', triangleCount, 'triangles');
@@ -117,12 +104,6 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     for (let i = 0; i < triangleCount; i++) {
       if (Date.now() - startTime > MAX_PROCESSING_TIME) {
         throw new Error("STL parsing timeout: File too complex");
-      }
-
-      // Check if we've reached the end of the file
-      if (offset + 50 > data.byteLength) {
-        console.warn(`Reached end of file at triangle ${i}/${triangleCount}`);
-        break;
       }
 
       // Read normal
@@ -145,68 +126,9 @@ export function parseSTL(data: ArrayBuffer): STLParseResult {
     return { triangles, normals };
   } catch (error) {
     console.error('STL parsing error:', error);
-    if (error instanceof Error && error.message.includes('Triangle count')) {
-      throw new Error('The STL file appears to be corrupted. Please try re-exporting it from your CAD software.');
-    }
     throw error;
   }
 }
-
-export function isSTEPFile(data: ArrayBuffer): boolean {
-  try {
-    const headerView = new Uint8Array(data, 0, 10);
-    const decoder = new TextDecoder();
-    const header = decoder.decode(headerView);
-    return header.includes('ISO-10303') || header.includes('STEP');
-  } catch (error) {
-    return false;
-  }
-}
-
-export async function parseSTEPFile(data: ArrayBuffer): Promise<STLParseResult> {
-  try {
-    const decoder = new TextDecoder();
-    const stepContent = decoder.decode(data);
-
-    console.log('Starting STEP file parsing...');
-
-    const deserializeOptions = {
-      output: 'geometry',
-      statusCallback: (msg: string) => console.log('JSCAD:', msg),
-      source: stepContent
-    };
-
-    // Parse STEP file using JSCAD
-    const parsed = await JSCADio.stepDeserializer.deserialize(deserializeOptions);
-
-    if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error('No valid geometry found in STEP file');
-    }
-
-    console.log('Successfully parsed STEP file, converting to triangles...');
-
-    // Convert to binary STL format using JSCAD serializer
-    const stlResult = JSCADio.stlSerializer.serialize({
-      binary: true,
-      geometry: parsed,
-      statusCallback: (msg: string) => console.log('STL conversion:', msg)
-    });
-
-    if (!stlResult || !(stlResult instanceof Uint8Array)) {
-      throw new Error('Failed to convert STEP geometry to STL format');
-    }
-
-    console.log('Successfully converted to STL format, parsing...');
-
-    // Parse the resulting STL data using our existing STL parser
-    return parseSTL(stlResult.buffer);
-
-  } catch (error) {
-    console.error('STEP parsing error:', error);
-    throw new Error('Failed to parse STEP file. Please ensure the file is a valid STEP format and try again.');
-  }
-}
-
 
 interface GeometryAnalysisResult {
   issues: string[];
@@ -364,7 +286,7 @@ function analyzeOverhangs(triangles: Float32Array, normals: Float32Array): Geome
   return { issues, pass };
 }
 
-export async function analyzeGeometry(fileContent: string, process: ProcessType): Promise<DFMReport> {
+export function analyzeGeometry(fileContent: string, process: ProcessType): DFMReport {
   if (!fileContent) {
     throw new Error("No file content provided for analysis");
   }
@@ -381,37 +303,17 @@ export async function analyzeGeometry(fileContent: string, process: ProcessType)
 
     console.log('Binary data size:', bytes.buffer.byteLength, 'bytes');
 
-    let triangles: Float32Array;
-    let normals: Float32Array;
-
-    const isStep = isSTEPFile(bytes.buffer);
-    console.log('Detected file format:', isStep ? 'STEP' : 'STL');
-
-    try {
-      if (isStep) {
-        const stepResult = await parseSTEPFile(bytes.buffer);
-        triangles = stepResult.triangles;
-        normals = stepResult.normals;
-      } else {
-        const stlResult = parseSTL(bytes.buffer);
-        triangles = stlResult.triangles;
-        normals = stlResult.normals;
-      }
-    } catch (error) {
-      if (isStep) {
-        throw new Error('Failed to parse STEP file. Please ensure the file is a valid STEP format and try again.');
-      } else {
-        if (error instanceof Error && error.message.includes('Triangle count')) {
-          throw new Error('The STL file appears to be corrupted. Please try re-exporting it from your CAD software.');
-        }
-        throw error;
-      }
-    }
-
-    console.log('Successfully parsed geometry');
+    const { triangles, normals } = parseSTL(bytes.buffer);
+    console.log('Successfully parsed STL geometry');
 
     const wallThickness = analyzeWallThickness(triangles, process);
     const overhangs = analyzeOverhangs(triangles, normals);
+
+    console.log('Analysis complete:', {
+      wallThicknessIssues: wallThickness.issues.length,
+      overhangIssues: overhangs.issues.length,
+      totalTime: Date.now() - startTime,
+    });
 
     return {
       wallThickness,
