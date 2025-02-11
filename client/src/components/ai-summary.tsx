@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Loader2, Sparkles, AlertTriangle } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { generateDFMSummary } from "@/lib/ai";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { DFMReport } from "@shared/schema";
@@ -11,13 +10,8 @@ interface AISummaryProps {
   process: string;
 }
 
-interface Insight {
-  text: string;
-  checked: boolean;
-}
-
 export function AISummary({ report, process }: AISummaryProps) {
-  const [insights, setInsights] = useState<Insight[]>([]);
+  const [insights, setInsights] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,13 +27,7 @@ export function AISummary({ report, process }: AISummaryProps) {
           return;
         }
 
-        // Split the summary into insights and create objects with checked state
-        const points = aiSummary
-          .split(/\*\*/)
-          .filter(point => point.trim().length > 0)
-          .map(text => ({ text: text.trim(), checked: false }));
-
-        setInsights(points.length > 1 ? points : [{ text: aiSummary, checked: false }]);
+        setInsights(aiSummary);
       } catch (err: any) {
         setError(err?.message || "Failed to generate AI insights. Please try again later.");
         console.error('AI Summary Error:', err);
@@ -50,14 +38,6 @@ export function AISummary({ report, process }: AISummaryProps) {
 
     fetchSummary();
   }, [report, process]);
-
-  const toggleInsight = (index: number) => {
-    setInsights(prevInsights => 
-      prevInsights.map((insight, i) => 
-        i === index ? { ...insight, checked: !insight.checked } : insight
-      )
-    );
-  };
 
   if (error) {
     return (
@@ -89,24 +69,11 @@ export function AISummary({ report, process }: AISummaryProps) {
               <span className="text-sm font-normal">Analyzing design...</span>
             </div>
           ) : (
-            <ul className="space-y-3">
-              {insights.map((insight, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  <Checkbox
-                    id={`insight-${index}`}
-                    checked={insight.checked}
-                    onCheckedChange={() => toggleInsight(index)}
-                    className="mt-1"
-                  />
-                  <label
-                    htmlFor={`insight-${index}`}
-                    className={`text-sm font-normal ${insight.checked ? 'text-muted-foreground line-through' : 'text-foreground'} cursor-pointer flex-1`}
-                  >
-                    {insight.text}
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <div className="prose prose-sm max-w-none">
+              <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
+                {insights}
+              </pre>
+            </div>
           )}
         </div>
       </div>
