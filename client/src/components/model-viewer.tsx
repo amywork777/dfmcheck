@@ -296,14 +296,30 @@ export function ModelViewer({
       threeGeometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 
       threeGeometry.center();
+      threeGeometry.computeBoundingSphere();
       threeGeometry.computeBoundingBox();
 
-      if (threeGeometry.boundingBox) {
+      if (threeGeometry.boundingSphere && threeGeometry.boundingBox) {
+        const { boundingSphere, boundingBox } = threeGeometry;
+
+        // Calculate the diagonal size of the bounding box
         const size = new THREE.Vector3();
-        threeGeometry.boundingBox.getSize(size);
+        boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 2 / maxDim;
+
+        // Calculate a scale that will make the model fit nicely in view
+        // Using the camera's FOV and position to determine ideal scale
+        const fov = 75; // matches the camera FOV in Canvas
+        const distance = 5; // matches initial camera Z position
+        const fovRadians = (fov * Math.PI) / 180;
+        const idealSize = 2 * Math.tan(fovRadians / 2) * distance * 0.7; // 0.7 to leave some padding
+        const scale = idealSize / maxDim;
+
+        // Apply the calculated scale
         threeGeometry.scale(scale, scale, scale);
+
+        // Update bounding sphere after scaling
+        boundingSphere.radius *= scale;
       }
 
       setGeometry(threeGeometry);
@@ -332,7 +348,12 @@ export function ModelViewer({
       <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden">
         <Suspense fallback={<LoadingFallback />}>
           <Canvas
-            camera={{ position: [0, 0, 5], fov: 75 }}
+            camera={{ 
+              position: [2, 2, 5], 
+              fov: 75,
+              near: 0.1,
+              far: 1000
+            }}
             style={{ background: "#f3f4f6" }}
           >
             <Model geometry={geometry} analysisReport={analysisReport} />
