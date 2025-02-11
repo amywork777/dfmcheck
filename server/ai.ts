@@ -34,22 +34,24 @@ export async function generateDesignInsights(
         ).join('\n')}`
       : 'No custom guidelines provided';
 
-    const prompt = `As a Design for Manufacturing (DFM) expert, analyze the following manufacturing report and provide comprehensive design insights. Consider both standard manufacturing requirements and custom guidelines.
+    const prompt = `As a DFM expert, analyze this manufacturing report and provide clear, actionable insights. Format the response in these sections:
+
+Critical Design Issues:
+• List the most important issues identified
+• Be specific and quantitative where possible
+
+Improvement Actions:
+• List 2-3 specific actions to address the issues
+• Include measurable targets where applicable
 
 Manufacturing Process: ${process}
 
-Standard Guidelines Status:
+Analysis Results:
 ${standardGuidelinesStatus}
 
 ${customGuidelinesStatus}
 
-Please provide:
-1. A summary of critical design issues
-2. Specific recommendations for improvement
-3. Manufacturing process considerations
-4. Material selection insights
-
-Keep the response concise and actionable.`;
+Keep the response focused, actionable, and organized in clear bullet points.`;
 
     console.log('Sending request to OpenAI...');
 
@@ -58,7 +60,7 @@ Keep the response concise and actionable.`;
       messages: [
         {
           role: "system",
-          content: "You are a DFM (Design for Manufacturing) expert providing technical insights and recommendations."
+          content: "You are a DFM expert providing clear, structured manufacturing insights. Use bullet points and focus on actionable recommendations."
         },
         {
           role: "user",

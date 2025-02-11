@@ -71,11 +71,11 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
   console.log('Processing report:', report); // Add logging for debugging
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-start gap-3">
+    <div className="space-y-4 sm:space-y-6">
+      <Card className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
           <Info className="h-5 w-5 text-blue-500 mt-1" />
-          <div>
+          <div className="flex-1">
             <h3 className="font-medium mb-2">Manufacturing Process: {processName}</h3>
             <p className="text-sm text-muted-foreground mb-2">
               {PROCESS_DESCRIPTIONS[process as keyof typeof PROCESS_DESCRIPTIONS]}
@@ -101,8 +101,8 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
         }
 
         return (
-          <Card key={key} className="p-6">
-            <div className="flex items-start gap-3">
+          <Card key={key} className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
               {section.pass ? (
                 <CheckCircle2 className="h-5 w-5 text-green-500 mt-1" />
               ) : (
@@ -125,7 +125,7 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
 
                       return (
                         <Alert key={i} variant={section.pass ? "default" : "destructive"}>
-                          <AlertTitle className="flex items-center gap-2">
+                          <AlertTitle className="flex flex-col sm:flex-row sm:items-center gap-2">
                             <span className="font-mono bg-muted px-2 py-1 rounded text-sm">
                               {measurement}
                             </span>
@@ -148,16 +148,16 @@ export function DFMReport({ report, fileName, process }: DFMReportProps) {
 
       {/* Material Recommendations */}
       {report.materialRecommendations && (
-        <Card className="p-6">
-          <div className="flex items-start gap-3">
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
             <Boxes className="h-5 w-5 text-blue-500 mt-1" />
-            <div>
+            <div className="flex-1">
               <h3 className="font-medium mb-2">Material Recommendations</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 {report.materialRecommendations.reasoning}
               </p>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                 <div>
                   <h4 className="text-sm font-medium mb-2">Recommended Materials</h4>
                   <ul className="space-y-1">
