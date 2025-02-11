@@ -16,9 +16,7 @@ export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisReport, setAnalysisReport] = useState<DFMReport | null>(null);
 
@@ -143,53 +141,6 @@ export default function Home() {
     return false;
   }, [toast]);
 
-  const handleImageSelected = useCallback(async (file: File) => {
-    const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
-    const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
-
-    if (validExtensions.includes(extension)) {
-      try {
-        if (file.size > 10 * 1024 * 1024) {
-          toast({
-            title: "Image too large",
-            description: "Please upload an image smaller than 10MB",
-            variant: "destructive"
-          });
-          return false;
-        }
-
-        // Create image preview
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-
-        setSelectedImage(file);
-        toast({
-          title: "Image uploaded successfully",
-          description: `Selected image: ${file.name}`,
-        });
-        return true;
-      } catch (error) {
-        console.error('Image reading error:', error);
-        toast({
-          title: "Error reading image",
-          description: error instanceof Error ? error.message : "Failed to read the image",
-          variant: "destructive"
-        });
-        return false;
-      }
-    }
-
-    toast({
-      title: "Invalid image type",
-      description: "Please upload a PNG, JPEG, or WebP image",
-      variant: "destructive"
-    });
-    return false;
-  }, [toast]);
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto py-12">
@@ -198,27 +149,17 @@ export default function Home() {
             DFM Analysis Tool
           </h1>
           <p className="text-muted-foreground mt-2">
-            Upload your 3D model or image for instant manufacturability feedback
+            Upload your 3D model for instant manufacturability feedback
           </p>
         </div>
 
         <div className="space-y-8">
-          <div className="grid md:grid-cols-2 gap-6">
-            <FileUpload
-              type="model"
-              onFileSelected={handleFileSelected}
-              onFileUploaded={setSelectedFile}
-              maxSize={50 * 1024 * 1024}
-              accept=".stl,.step,.stp"
-            />
-            <FileUpload
-              type="image"
-              onFileSelected={handleImageSelected}
-              onFileUploaded={setSelectedImage}
-              maxSize={10 * 1024 * 1024}
-              accept=".png,.jpg,.jpeg,.webp"
-            />
-          </div>
+          <FileUpload
+            onFileSelected={handleFileSelected}
+            onFileUploaded={setSelectedFile}
+            maxSize={50 * 1024 * 1024}
+            accept=".stl,.step,.stp"
+          />
 
           {fileContent && (
             <Card className="p-6">
@@ -230,31 +171,11 @@ export default function Home() {
             </Card>
           )}
 
-          {imagePreview && (
-            <Card className="p-6">
-              <h3 className="font-medium mb-4">Image Preview</h3>
-              <img 
-                src={imagePreview} 
-                alt="Uploaded design" 
-                className="w-full h-auto rounded-lg"
-              />
-            </Card>
-          )}
-
           {selectedFile && (
             <Card className="p-4 bg-green-50">
               <div className="flex items-center gap-2 text-green-700">
                 <CheckCircle2 className="h-5 w-5" />
                 <span>File ready: {selectedFile.name}</span>
-              </div>
-            </Card>
-          )}
-
-          {selectedImage && (
-            <Card className="p-4 bg-green-50">
-              <div className="flex items-center gap-2 text-green-700">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>Image ready: {selectedImage.name}</span>
               </div>
             </Card>
           )}

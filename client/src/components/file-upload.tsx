@@ -7,7 +7,6 @@ interface FileUploadProps {
   onFileUploaded: (file: File) => void;
   maxSize: number;
   accept: string;
-  type?: "model" | "image";
   title?: string;
   description?: string;
 }
@@ -17,7 +16,6 @@ export function FileUpload({
   onFileUploaded, 
   maxSize, 
   accept,
-  type = "model",
   title,
   description
 }: FileUploadProps) {
@@ -45,13 +43,9 @@ export function FileUpload({
     }
   }, [handleFile]);
 
-  const defaultTitle = type === "model" ? "Drop your 3D model here" : "Drop an image here";
-  const defaultDescription = type === "model" 
-    ? "Upload a binary STL or STEP file" 
-    : "Upload a PNG, JPEG, or WebP image";
-  const defaultSubtext = type === "model"
-    ? "Most 3D modeling software can export in these formats"
-    : "Image will be analyzed for design and manufacturing feedback";
+  const defaultTitle = "Drop your 3D model here";
+  const defaultDescription = "Upload a binary STL or STEP file";
+  const defaultSubtext = "Most 3D modeling software can export in these formats";
 
   return (
     <Card className="p-8">

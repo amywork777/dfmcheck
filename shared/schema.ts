@@ -15,8 +15,6 @@ export const analyses = pgTable("analyses", {
   fileContent: text("file_content").notNull(),
   process: text("process", {enum: manufacturingProcesses}).notNull(),
   report: jsonb("report").notNull(),
-  imageContent: text("image_content"),
-  imageAnalysis: jsonb("image_analysis"),
 });
 
 export const insertAnalysisSchema = createInsertSchema(analyses).pick({
@@ -24,8 +22,6 @@ export const insertAnalysisSchema = createInsertSchema(analyses).pick({
   fileContent: true,
   process: true,
   report: true,
-  imageContent: true,
-  imageAnalysis: true
 });
 
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
@@ -47,25 +43,5 @@ export type DFMReport = {
   draftAngles: {
     issues: string[];
     pass: boolean;
-  };
-};
-
-export type ImageAnalysis = {
-  designConsiderations: {
-    aesthetic: string[];
-    ergonomics: string[];
-    modularity: string[];
-    safety: string[];
-  };
-  manufacturingConsiderations: {
-    materials: string[];
-    processes: string[];
-    limitations: string[];
-    suggestions: string[];
-  };
-  qualityControl: {
-    testingPoints: string[];
-    potentialDefects: string[];
-    lifecycle: string[];
   };
 };
